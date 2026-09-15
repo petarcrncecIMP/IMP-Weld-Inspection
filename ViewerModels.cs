@@ -139,7 +139,7 @@ public static class ServerIndex
 /// <summary>One photo or video in an isometrija folder.</summary>
 public sealed class PhotoItem : INotifyPropertyChanged
 {
-    private static readonly Regex NameRx = new(@"^(\d{7})-(.+)-(\d+)(\.[^.]+)$", RegexOptions.CultureInvariant);
+    private static readonly Regex NameRx = new(@"^(\d{7})-(.+)-(\d+)\.[^.]+$", RegexOptions.CultureInvariant);
     private static readonly Regex WeldRx = new(@"^(F?)W(\d+(?:\.\d+)?)([a-z]?)$", RegexOptions.CultureInvariant);
     public const string OtherLabel = "Ostalo";
 
@@ -147,7 +147,6 @@ public sealed class PhotoItem : INotifyPropertyChanged
 
     public required string Path { get; init; }
     public required string Name { get; init; }
-    public required string ShortName { get; init; }
     public required string WeldLabel { get; init; }
     public required int Number { get; init; }
     public required bool IsVideo { get; init; }
@@ -181,7 +180,6 @@ public sealed class PhotoItem : INotifyPropertyChanged
             {
                 Path = f.FullName,
                 Name = f.Name,
-                ShortName = m.Success ? $"{m.Groups[2].Value}-{number}{m.Groups[4].Value.ToLowerInvariant()}" : f.Name,
                 WeldLabel = m.Success ? m.Groups[2].Value : OtherLabel,
                 Number = number,
                 IsVideo = MediaFiles.IsVideo(f.Name),
