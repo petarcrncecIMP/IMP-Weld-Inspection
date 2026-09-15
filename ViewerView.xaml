@@ -1,0 +1,204 @@
+<UserControl x:Class="IMPWeldPhotos.ViewerView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:local="clr-namespace:IMPWeldPhotos"
+             PreviewKeyDown="OnPreviewKeyDown">
+    <Grid>
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="320" MinWidth="220" />
+            <ColumnDefinition Width="5" />
+            <ColumnDefinition Width="*" MinWidth="260" />
+            <ColumnDefinition Width="5" />
+            <ColumnDefinition Width="440" MinWidth="300" />
+        </Grid.ColumnDefinitions>
+
+        <!-- Left: project picker (remembered), search, and that project's isometrije by unit. -->
+        <Border Grid.Column="0" Background="{DynamicResource SurfaceBrush}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="0,0,1,0">
+            <DockPanel>
+                <local:ProjectPicker x:Name="ProjectBox" DockPanel.Dock="Top" Margin="12,12,12,0" />
+                <TextBox x:Name="SearchBox" DockPanel.Dock="Top" Style="{StaticResource SearchBox}" Margin="12,8,12,8"
+                         Tag="Išči izometrijo po kodi, imenu, sklopu …" TextChanged="OnSearchChanged" />
+                <TextBlock x:Name="IsoCountText" DockPanel.Dock="Bottom" Style="{StaticResource Muted}" Margin="12,6,12,8"
+                           TextTrimming="CharacterEllipsis" />
+                <Grid>
+                    <ListBox x:Name="IsoList" Style="{StaticResource PlainList}" ItemContainerStyle="{StaticResource IsoItem}"
+                             SelectionChanged="OnIsoSelected" IsSynchronizedWithCurrentItem="False" VirtualizingPanel.IsVirtualizing="True"
+                             VirtualizingPanel.IsVirtualizingWhenGrouping="True" VirtualizingPanel.ScrollUnit="Pixel">
+                        <ListBox.GroupStyle>
+                            <!-- Unit -->
+                            <GroupStyle>
+                                <GroupStyle.HeaderTemplate>
+                                    <DataTemplate>
+                                        <DockPanel Margin="12,10,12,2">
+                                            <TextBlock DockPanel.Dock="Right" Text="{Binding ItemCount}" Style="{StaticResource Muted}" Margin="8,0,0,0" />
+                                            <TextBlock Text="{Binding Name}" FontWeight="Bold" Foreground="{DynamicResource TextStrongBrush}"
+                                                       TextTrimming="CharacterEllipsis" />
+                                        </DockPanel>
+                                    </DataTemplate>
+                                </GroupStyle.HeaderTemplate>
+                            </GroupStyle>
+                        </ListBox.GroupStyle>
+                        <ListBox.ItemTemplate>
+                            <DataTemplate>
+                                <StackPanel Margin="8,0,0,0" ToolTip="{Binding FolderName}">
+                                    <TextBlock Text="{Binding BomCode}" FontWeight="SemiBold" />
+                                    <TextBlock Text="{Binding Title}" Style="{StaticResource Muted}" TextTrimming="CharacterEllipsis" />
+                                </StackPanel>
+                            </DataTemplate>
+                        </ListBox.ItemTemplate>
+                    </ListBox>
+                    <TextBlock x:Name="IsoEmptyText" Style="{StaticResource Muted}" HorizontalAlignment="Center" VerticalAlignment="Center"
+                               TextAlignment="Center" TextWrapping="Wrap" Margin="16" Visibility="Collapsed" />
+                </Grid>
+            </DockPanel>
+        </Border>
+
+        <GridSplitter Grid.Column="1" HorizontalAlignment="Stretch" Background="Transparent" />
+
+        <!-- Middle: photos of the selected isometrija, grouped by weld. -->
+        <Grid Grid.Column="2">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="*" />
+            </Grid.RowDefinitions>
+            <DockPanel x:Name="IsoHeader" Margin="16,12,16,8" Visibility="Collapsed">
+                <Button DockPanel.Dock="Right" Style="{StaticResource SecondaryButton}" VerticalAlignment="Center" Margin="12,0,0,0"
+                        Click="OnOpenIsoFolderClick" ToolTip="Odpri mapo v Raziskovalcu">
+                    <StackPanel Orientation="Horizontal">
+                        <local:Glyph Data="{StaticResource Icon.FolderOpen}" Margin="0,0,8,0" />
+                        <TextBlock Text="Odpri mapo" />
+                    </StackPanel>
+                </Button>
+                <StackPanel VerticalAlignment="Center">
+                    <TextBlock x:Name="IsoTitle" FontSize="16" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
+                    <TextBlock x:Name="IsoSubtitle" Style="{StaticResource Muted}" TextTrimming="CharacterEllipsis" />
+                </StackPanel>
+            </DockPanel>
+
+            <ListBox x:Name="PhotoList" Grid.Row="1" Style="{StaticResource PlainList}" ItemContainerStyle="{StaticResource PhotoTile}"
+                     Padding="16,0,6,8" Visibility="Collapsed" VirtualizingPanel.IsVirtualizing="False"
+                     SelectionChanged="OnPhotoSelected" MouseDoubleClick="OnPhotoDoubleClick" IsSynchronizedWithCurrentItem="False">
+                <ListBox.ItemsPanel>
+                    <ItemsPanelTemplate>
+                        <WrapPanel />
+                    </ItemsPanelTemplate>
+                </ListBox.ItemsPanel>
+                <ListBox.GroupStyle>
+                    <GroupStyle>
+                        <GroupStyle.HeaderTemplate>
+                            <DataTemplate>
+                                <StackPanel Orientation="Horizontal" Margin="0,8,0,8">
+                                    <TextBlock Text="{Binding Name}" FontWeight="Bold" FontSize="14" Foreground="{DynamicResource TextStrongBrush}" />
+                                    <TextBlock Text="{Binding ItemCount, StringFormat='  ·  {0}'}" Style="{StaticResource Muted}"
+                                               FontSize="13" VerticalAlignment="Center" />
+                                </StackPanel>
+                            </DataTemplate>
+                        </GroupStyle.HeaderTemplate>
+                    </GroupStyle>
+                </ListBox.GroupStyle>
+                <ListBox.ItemTemplate>
+                    <DataTemplate>
+                        <StackPanel>
+                            <Grid Height="120" ClipToBounds="True" Background="{DynamicResource WindowBackgroundBrush}">
+                                <Image Source="{Binding Thumbnail}" Stretch="UniformToFill" RenderOptions.BitmapScalingMode="HighQuality" />
+                                <local:Glyph x:Name="VideoGlyph" Data="{StaticResource Icon.Play}" Width="30" Height="30"
+                                             Foreground="{DynamicResource TextMutedBrush}" Visibility="Collapsed" />
+                            </Grid>
+                            <TextBlock Text="{Binding ShortName}" ToolTip="{Binding Name}" Margin="4,6,4,2" FontSize="12"
+                                       TextTrimming="CharacterEllipsis" />
+                        </StackPanel>
+                        <DataTemplate.Triggers>
+                            <DataTrigger Binding="{Binding IsVideo}" Value="True">
+                                <Setter TargetName="VideoGlyph" Property="Visibility" Value="Visible" />
+                            </DataTrigger>
+                        </DataTemplate.Triggers>
+                    </DataTemplate>
+                </ListBox.ItemTemplate>
+            </ListBox>
+
+            <StackPanel x:Name="CenterEmpty" Grid.Row="1" HorizontalAlignment="Center" VerticalAlignment="Center" Margin="24">
+                <local:Glyph Data="{StaticResource Icon.Images}" Width="64" Height="64" Foreground="{DynamicResource TextMutedBrush}"
+                             HorizontalAlignment="Center" Opacity="0.6" />
+                <TextBlock x:Name="CenterEmptyTitle" Style="{StaticResource Heading}" Foreground="{DynamicResource TextMutedBrush}"
+                           HorizontalAlignment="Center" Margin="0,16,0,4" />
+                <TextBlock x:Name="CenterEmptyText" HorizontalAlignment="Center" TextAlignment="Center" TextWrapping="Wrap" MaxWidth="360" />
+            </StackPanel>
+        </Grid>
+
+        <GridSplitter Grid.Column="3" HorizontalAlignment="Stretch" Background="Transparent" />
+
+        <!-- Right: large preview, details and actions. -->
+        <Border Grid.Column="4" Background="{DynamicResource SurfaceBrush}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1,0,0,0">
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="*" />
+                    <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
+                <Border Margin="12" CornerRadius="8" Background="{DynamicResource WindowBackgroundBrush}" ClipToBounds="True">
+                    <Grid>
+                        <Image x:Name="PreviewImage" Stretch="Uniform" Margin="8" RenderOptions.BitmapScalingMode="HighQuality"
+                               Cursor="Hand" ToolTip="Dvoklik odpre fotografijo" MouseLeftButtonDown="OnPreviewMouseDown" />
+                        <local:Glyph x:Name="PreviewVideoGlyph" Data="{StaticResource Icon.FilmStrip}" Width="64" Height="64"
+                                     Foreground="{DynamicResource TextMutedBrush}" Visibility="Collapsed" />
+                        <TextBlock x:Name="PreviewHint" Style="{StaticResource Muted}" HorizontalAlignment="Center" VerticalAlignment="Bottom"
+                                   Margin="16,0,16,24" TextAlignment="Center" TextWrapping="Wrap" Text="Izberite fotografijo" />
+                        <Button x:Name="PrevButton" Style="{StaticResource ToolbarButton}" HorizontalAlignment="Left" VerticalAlignment="Center"
+                                Margin="8" IsEnabled="False" ToolTip="Prejšnja (←)" Click="OnPrevClick">
+                            <local:Glyph Data="{StaticResource Icon.CaretLeft}" />
+                        </Button>
+                        <Button x:Name="NextButton" Style="{StaticResource ToolbarButton}" HorizontalAlignment="Right" VerticalAlignment="Center"
+                                Margin="8" IsEnabled="False" ToolTip="Naslednja (→)" Click="OnNextClick">
+                            <local:Glyph Data="{StaticResource Icon.CaretRight}" />
+                        </Button>
+                    </Grid>
+                </Border>
+
+                <StackPanel x:Name="DetailsPanel" Grid.Row="1" Margin="16,0,16,16" Visibility="Collapsed">
+                    <TextBlock x:Name="DetailName" FontSize="16" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
+                    <Grid Margin="0,8,0,0">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="90" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                        </Grid.RowDefinitions>
+                        <TextBlock Grid.Row="0" Text="Zvar" Style="{StaticResource Muted}" Margin="0,2" />
+                        <TextBlock Grid.Row="0" Grid.Column="1" x:Name="DetailWeld" Margin="0,2" />
+                        <TextBlock Grid.Row="1" Text="Posneto" Style="{StaticResource Muted}" Margin="0,2" />
+                        <TextBlock Grid.Row="1" Grid.Column="1" x:Name="DetailTaken" Margin="0,2" />
+                        <TextBlock Grid.Row="2" Text="Velikost" Style="{StaticResource Muted}" Margin="0,2" />
+                        <TextBlock Grid.Row="2" Grid.Column="1" x:Name="DetailSize" Margin="0,2" />
+                        <TextBlock Grid.Row="3" Text="Datoteka" Style="{StaticResource Muted}" Margin="0,2" />
+                        <TextBlock Grid.Row="3" Grid.Column="1" x:Name="DetailFile" Margin="0,2" TextTrimming="CharacterEllipsis" />
+                    </Grid>
+                    <WrapPanel Margin="0,12,0,0">
+                        <Button Style="{StaticResource SecondaryButton}" Margin="0,0,8,8" Click="OnOpenClick" ToolTip="Odpri v privzetem pregledovalniku">
+                            <StackPanel Orientation="Horizontal">
+                                <local:Glyph Data="{StaticResource Icon.ArrowSquareOut}" Margin="0,0,8,0" />
+                                <TextBlock Text="Odpri" />
+                            </StackPanel>
+                        </Button>
+                        <Button Style="{StaticResource SecondaryButton}" Margin="0,0,8,8" Click="OnShowInFolderClick">
+                            <StackPanel Orientation="Horizontal">
+                                <local:Glyph Data="{StaticResource Icon.FolderOpen}" Margin="0,0,8,0" />
+                                <TextBlock Text="Pokaži v mapi" />
+                            </StackPanel>
+                        </Button>
+                        <Button Style="{StaticResource SecondaryButton}" Margin="0,0,8,8" Click="OnCopyClick"
+                                ToolTip="Kopiraj datoteko, da jo prilepite v e-pošto, mapo ali poročilo">
+                            <StackPanel Orientation="Horizontal">
+                                <local:Glyph Data="{StaticResource Icon.Copy}" Margin="0,0,8,0" />
+                                <TextBlock Text="Kopiraj" />
+                            </StackPanel>
+                        </Button>
+                    </WrapPanel>
+                    <TextBlock x:Name="ActionStatus" Style="{StaticResource Muted}" TextWrapping="Wrap" Visibility="Collapsed" />
+                </StackPanel>
+            </Grid>
+        </Border>
+    </Grid>
+</UserControl>

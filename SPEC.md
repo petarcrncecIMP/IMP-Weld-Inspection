@@ -233,6 +233,15 @@ be started by hand with a "Scan again" button.
 3. **Summary:** copied, skipped as duplicate, unresolved, failed (with the
    reason). Plus a button to open the destination folder in Explorer.
 4. After success: the **Clear card** action from §4, with its own confirmation.
+5. **Pregled (viewer)**, a second page switched from the header: a project picker
+   (Kosovnice's typeable combobox: matches the code with or without dashes, or
+   the name; remembered in settings.json while the project still exists), that
+   project's isometrije grouped by unit and searchable, its photos as thumbnails
+   grouped by weld, and a large preview with capture
+   date and size. Actions: open in the default viewer, show in folder, copy the
+   file to the clipboard. Double-clicking a row of the import table opens that
+   isometrija here. Images are read into memory before decoding, so the viewer
+   never keeps a file on the share open.
 
 Write a log per import (CSV: time, source path, destination path, source
 SHA-256, stamped yes/no, result) to `%LOCALAPPDATA%\IMP\IMPWeldPhotos\logs\`.

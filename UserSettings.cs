@@ -13,6 +13,9 @@ public sealed class UserSettings
     public double? Height { get; set; }
     public bool Maximized { get; set; }
 
+    /// <summary>Project folder last picked in Pregled.</summary>
+    public string? ViewerProject { get; set; }
+
     private static string FilePath => Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
         "IMP", "IMPWeldPhotos", "settings.json");

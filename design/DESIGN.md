@@ -96,7 +96,8 @@ the fallback in the `FontFamily` list.
   - Right side: toolbar buttons (§5).
 - **Spacing:** 4 px base unit. Panels padded 12–16 px. Table cells 8 px
   horizontally.
-- **No sidebar, no tabs.** One screen; dialogs for confirmations.
+- **Two pages, switched by tabs in the header:** Uvoz (import) and Pregled (viewer).
+  Dialogs for confirmations.
 
 ---
 

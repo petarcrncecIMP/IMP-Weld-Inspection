@@ -28,6 +28,7 @@ public partial class MainWindow : Window
     private TaskCompletionSource<string?>? _dialog;
     private bool _busy;
     private bool _importing;
+    private bool _viewerReady;
 
     public MainWindow(UserSettings settings, string? startFolder)
     {
@@ -63,6 +64,11 @@ public partial class MainWindow : Window
 
     private async void OnRescanClick(object sender, RoutedEventArgs e)
     {
+        if (ViewerTab.IsChecked == true)
+        {
+            await ViewerPage.RefreshAsync();
+            return;
+        }
         if (_busy) return;
         var root = _plan?.Scan.Root ?? _startFolder;
         if (root != null && Directory.Exists(root) && await ScanAsync(root, auto: false)) return;
@@ -130,6 +136,37 @@ public partial class MainWindow : Window
             SetBanner("api", $"Nastavitve CommonData API v {AppConfig.FileName} niso veljavne: {ex.Message}");
             return null;
         }
+    }
+
+    // ─── Pages ───────────────────────────────────────────────────────────────
+
+    private async void OnTabChanged(object sender, RoutedEventArgs e)
+    {
+        // Fires once while InitializeComponent is still building the window.
+        if (ImportPage == null || ViewerPage == null) return;
+
+        var viewer = ViewerTab.IsChecked == true;
+        ImportPage.Visibility = viewer ? Visibility.Collapsed : Visibility.Visible;
+        ViewerPage.Visibility = viewer ? Visibility.Visible : Visibility.Collapsed;
+        RescanButton.ToolTip = viewer ? "Osveži" : "Preglej znova";
+        if (!viewer) return;
+
+        if (!_viewerReady)
+        {
+            ViewerPage.Initialize(_cfg, _settings);
+            _viewerReady = true;
+        }
+        // Every visit re-reads the share, so photos imported meanwhile are there.
+        await ViewerPage.RefreshAsync();
+    }
+
+    private void OnWeldRowDoubleClick(object sender, MouseButtonEventArgs e)
+    {
+        if (e.OriginalSource is not DependencyObject source ||
+            ItemsControl.ContainerFromElement(WeldGrid, source) is not DataGridRow { Item: WeldPlan weld })
+            return;
+        ViewerPage.PendingFolder = weld.DestinationFolder;
+        ViewerTab.IsChecked = true;
     }
 
     // ─── Showing the plan ────────────────────────────────────────────────────
@@ -601,7 +638,7 @@ public partial class MainWindow : Window
             : $"Mapa {root}";
 
     /// <summary>Slovenian singular / dual / plural (3-4) / plural (5+) by the last two digits.</summary>
-    private static string Plural(int n, string one, string two, string few, string many)
+    internal static string Plural(int n, string one, string two, string few, string many)
     {
         var m = Math.Abs(n) % 100;
         var word = m == 1 ? one : m == 2 ? two : m is 3 or 4 ? few : many;
