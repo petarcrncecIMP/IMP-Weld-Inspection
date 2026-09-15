@@ -38,6 +38,17 @@ public sealed class Manifest
         return new Manifest(path, files);
     }
 
+    /// <summary>Forgets photos that are no longer in the folder, so a photo someone
+    /// deleted is imported again instead of being skipped as a duplicate. True when
+    /// anything was dropped.</summary>
+    public bool DropMissing()
+    {
+        var folder = Path.GetDirectoryName(_path)!;
+        var gone = Files.Keys.Where(name => !File.Exists(Path.Combine(folder, name))).ToList();
+        foreach (var name in gone) Files.Remove(name);
+        return gone.Count > 0;
+    }
+
     /// <summary>Written to a temp name and moved into place, so a reader never sees
     /// half a file.</summary>
     public void Save()

@@ -131,6 +131,15 @@ public sealed class Importer
             FailAll(weld, $"{Manifest.FileName} v {folder} ni berljiv: {ex.Message}");
             return;
         }
+        try
+        {
+            if (manifest.DropMissing()) manifest.Save();
+        }
+        catch (Exception ex)
+        {
+            FailAll(weld, $"{Manifest.FileName} v {folder} ni mogoče posodobiti: {ex.Message}");
+            return;
+        }
 
         var prefix = weld.FilePrefix;
         var importedHashes = manifest.Files
@@ -324,6 +333,7 @@ public sealed class Importer
         var dest = _tree.EnsureIsoFolder(info, _result.Notes);
         var source = Manifest.Load(bomDir);
         var target = Manifest.Load(dest);
+        target.DropMissing();
 
         foreach (var path in Directory.GetFiles(bomDir))
         {

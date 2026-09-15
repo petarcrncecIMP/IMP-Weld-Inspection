@@ -101,6 +101,7 @@ public static class ImportPlanner
                 try
                 {
                     manifest = Manifest.Load(existing);
+                    manifest.DropMissing(); // preview only: not saved
                 }
                 catch (Exception ex)
                 {
