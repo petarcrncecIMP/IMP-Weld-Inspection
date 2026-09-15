@@ -125,7 +125,7 @@ def make_stamp_preview():
         font, name = load_font(size)
 
     x = (W - tw) / 2 - box[0]
-    y = H * 0.72 - th / 2 - box[1]
+    y = H * 0.86 - th / 2 - box[1]
 
     shadow = Image.new('L', (W, H), 0)
     off = max(1, round(size * 0.06))

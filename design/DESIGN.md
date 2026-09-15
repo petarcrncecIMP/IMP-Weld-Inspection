@@ -197,7 +197,8 @@ the fallback in the `FontFamily` list.
 
 The visual rules for the stamp are in `SPEC.md` §4 ("Stamping").
 `samples/stamp-preview.jpg` shows the intended result on a real weld photo:
-white text with a soft dark shadow, centered, at 72 % of the height. Match it.
+white text with a soft dark shadow, centered. The text centre is now at 86 % of the
+height (the preview was rendered at 72 % before it was moved down).
 
 ---
 

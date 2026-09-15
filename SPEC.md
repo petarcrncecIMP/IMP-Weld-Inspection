@@ -186,8 +186,8 @@ Every **image** gets its own name stamped on it, so a photo that is later
 emailed, printed or pasted into a report still says which weld it shows.
 
 - **Text:** the final file name without extension, e.g. `2000487-W2a-1`.
-- **Position:** horizontally centered. Vertically a little below the lower third:
-  put the vertical center of the text at **72 % of the image height**.
+- **Position:** horizontally centered. Vertically near the bottom: put the
+  vertical center of the text at **86 % of the image height**.
 - **Look:** white text with a dark drop shadow, so it reads on any background.
   Bright pipe walls, dark bores and weld glare all occur. Use a semi-transparent
   black shadow (about 60 % opacity), offset down and right by about 6 % of the

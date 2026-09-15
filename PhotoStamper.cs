@@ -8,7 +8,7 @@ namespace IMPWeldPhotos;
 /// <summary>
 /// Stamps a photo with its own file name (SPEC.md §4 "Stamping"; reference render
 /// design/samples/stamp-preview.jpg): white Segoe UI Semibold, centred, text centre
-/// at 72 % of the height, soft 60 % black shadow.
+/// at 86 % of the height, soft 60 % black shadow.
 /// </summary>
 public static class PhotoStamper
 {
@@ -69,7 +69,7 @@ public static class PhotoStamper
 
         var size = fill.TextSize;
         var x = (width - bounds.Width) / 2f - bounds.Left;
-        var y = height * 0.72f - bounds.MidY;
+        var y = height * 0.86f - bounds.MidY;
         var offset = Math.Max(1f, size * 0.06f);
 
         using var shadow = fill.Clone();
