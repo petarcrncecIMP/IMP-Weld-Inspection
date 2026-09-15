@@ -29,6 +29,8 @@ public partial class MainWindow : Window
     private bool _busy;
     private bool _importing;
     private bool _viewerReady;
+    private Updater.Release? _update;
+    private bool _updating;
 
     public MainWindow(UserSettings settings, string? startFolder)
     {
@@ -51,6 +53,9 @@ public partial class MainWindow : Window
         UpdateBanner();
         _watcher = new DriveWatcher(TimeSpan.FromSeconds(_cfg.PollSeconds));
         _watcher.DriveArrived += OnDriveArrived;
+
+        BrandLabel.ToolTip = Updater.IsDevBuild ? "IMP Weld Inspection (razvojna različica)" : $"IMP Weld Inspection v{Updater.CurrentVersion}";
+        _ = CheckForUpdateAsync();
 
         if (_startFolder != null) await ScanAsync(_startFolder, auto: false);
         else await ScanRemovableDrivesAsync(auto: true);
@@ -135,6 +140,57 @@ public partial class MainWindow : Window
         {
             SetBanner("api", $"Nastavitve CommonData API v {AppConfig.FileName} niso veljavne: {ex.Message}");
             return null;
+        }
+    }
+
+    // ─── Updates ─────────────────────────────────────────────────────────────
+
+    /// <summary>Asks GitHub once per start; the header button appears only when there is a
+    /// newer release. No network, no button, no message.</summary>
+    private async Task CheckForUpdateAsync()
+    {
+        _update = await Updater.CheckAsync(CancellationToken.None);
+        if (_update == null) return;
+        UpdateText.Text = $"Posodobi na {_update.Tag}";
+        UpdateButton.ToolTip = $"Nameščena je v{Updater.CurrentVersion}, na voljo je {_update.Tag}.";
+        UpdateButton.Visibility = Visibility.Visible;
+    }
+
+    private async void OnUpdateClick(object sender, RoutedEventArgs e)
+    {
+        if (_update is not { } release || _updating) return;
+        if (_importing)
+        {
+            await ShowDialogAsync("UVOZ POTEKA", "Icon.WarningCircle", true, 360,
+                                  BodyText("Posodobite, ko se uvoz konča."), ("ok", "V redu", "SecondaryButton"));
+            return;
+        }
+
+        var body = BodyText($"Na voljo je različica {release.Tag} (nameščena je v{Updater.CurrentVersion}). " +
+                            "Prenese se v ozadju, nato se aplikacija sama znova zažene.");
+        var choice = await ShowDialogAsync("POSODOBITEV", "Icon.DownloadSimple", false, 360, body,
+                                           ("cancel", "Prekliči", "SecondaryButton"),
+                                           ("update", "Posodobi", "PrimaryButton"));
+        if (choice != "update") return;
+
+        _updating = true;
+        UpdateButton.IsEnabled = false;
+        var progress = new Progress<double>(p => UpdateText.Text = $"Prenašam {p:P0}");
+        try
+        {
+            await Updater.InstallAsync(release, progress, CancellationToken.None);
+            // The new copy is starting and waits for this one to close.
+            Application.Current.Shutdown();
+        }
+        catch (Exception ex)
+        {
+            _updating = false;
+            UpdateButton.IsEnabled = true;
+            UpdateText.Text = $"Posodobi na {release.Tag}";
+            await ShowDialogAsync("POSODOBITEV NI USPELA", "Icon.XCircle", true, 360,
+                                  BodyText($"{ex.Message}. Aplikacija ostaja na v{Updater.CurrentVersion}; " +
+                                           "novo različico lahko prenesete tudi s strani GitHub."),
+                                  ("ok", "V redu", "SecondaryButton"));
         }
     }
 

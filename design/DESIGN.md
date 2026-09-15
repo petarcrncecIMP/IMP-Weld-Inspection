@@ -1,4 +1,4 @@
-# IMP Weld Photos — design instructions
+# IMP Weld Inspection — design instructions
 
 The app should look like it belongs to the same family as **Kosovnice**, the IMP
 BOM web app (Izometrije / Zvari / Popisi). Every value below is taken from that
@@ -70,7 +70,7 @@ the fallback in the `FontFamily` list.
 
 ```
 ┌──────────────────────────────────────────────────────────────────────┐
-│ [imp logo]  IMP WELD PHOTOS                  [⟳] [☀/☾]               │ ← accent header, 52 px
+│ [imp logo] | WELD INSPECTION  [Uvoz] [Pregled]   [Posodobi] [⟳] [☀/☾] │ ← accent header, 52 px
 │ ░░ faint grid lines fading out to the right ░░                        │
 ├──────────────────────────────────────────────────────────────────────┤
 │ SD kartica E:\  ·  3-6-40-00-4501 - FAMAR …  ·  142 fotografij        │ ← context bar, 36 px, muted
@@ -92,7 +92,9 @@ the fallback in the `FontFamily` list.
     `LinearGradientBrush` opacity mask, or draw it with a `DrawingBrush`.
   - Logo: `logo/imp-logo-white.png`, 30 px tall, at 85 % opacity, 12 px from the
     left edge.
-  - Title: `IMP WELD PHOTOS` in Barlow Condensed, white, 10 px after the logo.
+  - Title: `WELD INSPECTION` behind a 2 px divider of white at 50 %, 10 px after the
+    logo, as Kosovnice's `.app-brand-label`: Segoe UI 13 px bold, uppercase, 2 px
+    letter-spacing, white at 90 %.
   - Right side: toolbar buttons (§5).
 - **Spacing:** 4 px base unit. Panels padded 12–16 px. Table cells 8 px
   horizontally.

@@ -15,8 +15,19 @@ public partial class App : Application
 
     protected override void OnStartup(StartupEventArgs e)
     {
-        // One window only: a second start just brings the running one forward.
-        _mutex = new Mutex(true, MutexName, out _ownsMutex);
+        // One window only: a second start just brings the running one forward. Right after an
+        // update the old copy is still closing, so wait for it instead.
+        _mutex = new Mutex(false, MutexName);
+        var wait = e.Args.Contains(Updater.AfterUpdateArg) ? TimeSpan.FromSeconds(20) : TimeSpan.Zero;
+        try
+        {
+            _ownsMutex = _mutex.WaitOne(wait);
+        }
+        catch (AbandonedMutexException)
+        {
+            _ownsMutex = true;
+        }
+        if (_ownsMutex) Updater.DeleteLeftover();
         if (!_ownsMutex)
         {
             try
@@ -34,7 +45,7 @@ public partial class App : Application
         base.OnStartup(e);
         DispatcherUnhandledException += (_, args) =>
         {
-            MessageBox.Show(args.Exception.Message, "IMP Weld Photos", MessageBoxButton.OK, MessageBoxImage.Error);
+            MessageBox.Show(args.Exception.Message, "IMP Weld Inspection", MessageBoxButton.OK, MessageBoxImage.Error);
             args.Handled = true;
         };
 

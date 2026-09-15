@@ -1,4 +1,4 @@
-# IMP Weld Photos — spec for implementation
+# IMP Weld Inspection — spec for implementation
 
 A small Windows desktop app that copies endoscope weld photos from an SD card
 into the company share, sorted by project → unit → isometrija, and renamed so
@@ -19,9 +19,16 @@ every file identifies its weld on its own.
 **Recommended stack:** .NET 8, WPF, single-file self-contained publish
 (`win-x64`). No installer required.
 
-**Name:** window title and shortcut **IMP Weld Photos**. The project, assembly
-and executable are **`IMPWeldPhotos`**, following the other tools
-(`IMPIsoIndexer`, `IMPVaultWatcher`).
+**Name:** **IMP Weld Inspection**: window title, header (`WELD INSPECTION`) and
+executable (`IMP Weld Inspection.exe`, config `IMP Weld Inspection.config.json`).
+GitHub repo `IMP-Weld-Inspection`. The project and namespace keep the original
+`IMPWeldPhotos`, like the other tools (`IMPIsoIndexer`, `IMPVaultWatcher`), and so
+does the settings folder, so renaming lost nobody's settings.
+
+**Updates:** at start the app asks GitHub for the latest release. When it is newer, a
+"Posodobi na vX" button appears in the header; one click downloads the exe, renames
+the running one to `.old`, puts the new one in its place and restarts. Local builds
+are version 0.0.0 and never offer updates.
 
 ---
 

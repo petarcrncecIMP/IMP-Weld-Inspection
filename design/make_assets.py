@@ -1,4 +1,4 @@
-"""Regenerates the IMP Weld Photos design assets from the Kosovnice sources.
+"""Regenerates the IMP Weld Inspection design assets from the Kosovnice sources.
 
 Run from anywhere:  python make_assets.py
 Needs Pillow. Reads the IMP logo and the Zvari card photo from the Kosovnice
@@ -169,7 +169,7 @@ def make_header_preview():
             font = ImageFont.truetype(path, 22)
             break
     d = ImageDraw.Draw(hdr)
-    title = 'IMP WELD PHOTOS'
+    title = 'IMP WELD INSPECTION'
     bx = d.textbbox((0, 0), title, font=font)
     d.text((12 + lw + 10 - bx[0], (H - (bx[3] - bx[1])) // 2 - bx[1]), title,
            font=font, fill=WHITE)

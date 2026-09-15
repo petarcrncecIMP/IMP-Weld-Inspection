@@ -484,4 +484,22 @@
             </Setter.Value>
         </Setter>
     </Style>
+
+    <!-- Update offer in the header: the toolbar-button surface with success-green text, so it
+         stands out on the accent without adding a colour. -->
+    <Style x:Key="UpdateButton" TargetType="Button" BasedOn="{StaticResource ButtonBase}">
+        <Setter Property="Height" Value="34" />
+        <Setter Property="Padding" Value="12,0" />
+        <Setter Property="Background" Value="{DynamicResource ToolbarButtonBrush}" />
+        <Setter Property="Foreground" Value="{DynamicResource SuccessBrush}" />
+        <Style.Triggers>
+            <MultiTrigger>
+                <MultiTrigger.Conditions>
+                    <Condition Property="IsMouseOver" Value="True" />
+                    <Condition Property="IsEnabled" Value="True" />
+                </MultiTrigger.Conditions>
+                <Setter Property="Background" Value="{DynamicResource SecondaryHoverBrush}" />
+            </MultiTrigger>
+        </Style.Triggers>
+    </Style>
 </ResourceDictionary>

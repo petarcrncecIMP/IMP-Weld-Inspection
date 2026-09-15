@@ -2,7 +2,7 @@
   <!-- Desktop app: watches for an SD card, copies endoscope weld photos into
        U:\100_Identi\140_Zvari and stamps each with its own name. See SPEC.md and
        design/DESIGN.md. `dotnet publish -c Release` gives one self-contained
-       IMPWeldPhotos.exe. -->
+       "IMP Weld Inspection.exe". -->
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
     <TargetFramework>net8.0-windows</TargetFramework>
@@ -10,10 +10,13 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <RootNamespace>IMPWeldPhotos</RootNamespace>
-    <AssemblyName>IMPWeldPhotos</AssemblyName>
-    <Product>IMP Weld Photos</Product>
+    <!-- The exe users see: "IMP Weld Inspection.exe". Namespace and project keep the old name. -->
+    <AssemblyName>IMP Weld Inspection</AssemblyName>
+    <Product>IMP Weld Inspection</Product>
     <Company>IMP Promont</Company>
-    <Version>1.0.0</Version>
+    <!-- 0.0.0 marks a local build, which never offers updates. Releases get the tag's
+         version (release.yml passes -p:Version). -->
+    <Version>0.0.0</Version>
     <ApplicationIcon>design\icon\IMPWeldPhotos.ico</ApplicationIcon>
     <RuntimeIdentifier>win-x64</RuntimeIdentifier>
     <SelfContained>true</SelfContained>
@@ -50,7 +53,7 @@
     <None Include="Assets\Fonts\OFL.txt" />
   </ItemGroup>
   <ItemGroup>
-    <None Update="IMPWeldPhotos.config.json">
+    <None Update="IMP Weld Inspection.config.json">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
       <ExcludeFromSingleFile>true</ExcludeFromSingleFile>
     </None>
