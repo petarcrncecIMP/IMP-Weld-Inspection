@@ -54,7 +54,11 @@ public partial class MainWindow : Window
         _watcher = new DriveWatcher(TimeSpan.FromSeconds(_cfg.PollSeconds));
         _watcher.DriveArrived += OnDriveArrived;
 
-        BrandLabel.ToolTip = Updater.IsDevBuild ? "IMP Weld Inspection (razvojna različica)" : $"IMP Weld Inspection v{Updater.CurrentVersion}";
+        // The version is visible, not hidden in a tooltip: people need it to tell whether an update landed.
+        var version = Updater.IsDevBuild ? "razvojna različica" : $"v{Updater.CurrentVersion}";
+        Title = $"IMP Weld Inspection {version}";
+        VersionText.Text = version;
+        BrandLabel.ToolTip = Title;
         _ = CheckForUpdateAsync();
 
         if (_startFolder != null) await ScanAsync(_startFolder, auto: false);
