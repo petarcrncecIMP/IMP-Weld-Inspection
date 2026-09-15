@@ -2,11 +2,11 @@ using System.Text.Json;
 
 namespace IMPWeldPhotos;
 
-/// <summary>Read from "IMP Weld Inspection.config.json" beside the exe. Every value has a
+/// <summary>Read from IMP-Weld-Inspection.config.json beside the exe. Every value has a
 /// default except the API, which stays off until someone fills it in.</summary>
 public sealed class AppConfig
 {
-    public const string FileName = "IMP Weld Inspection.config.json";
+    public const string FileName = "IMP-Weld-Inspection.config.json";
 
     /// <summary>The name before the app was renamed; still read when it's the one beside the exe.</summary>
     private const string OldFileName = "IMPWeldPhotos.config.json";

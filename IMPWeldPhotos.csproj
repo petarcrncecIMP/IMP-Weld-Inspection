@@ -2,7 +2,7 @@
   <!-- Desktop app: watches for an SD card, copies endoscope weld photos into
        U:\100_Identi\140_Zvari and stamps each with its own name. See SPEC.md and
        design/DESIGN.md. `dotnet publish -c Release` gives one self-contained
-       "IMP Weld Inspection.exe". -->
+       IMP-Weld-Inspection.exe. -->
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
     <TargetFramework>net8.0-windows</TargetFramework>
@@ -10,8 +10,10 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <RootNamespace>IMPWeldPhotos</RootNamespace>
-    <!-- The exe users see: "IMP Weld Inspection.exe". Namespace and project keep the old name. -->
-    <AssemblyName>IMP Weld Inspection</AssemblyName>
+    <!-- The exe: IMP-Weld-Inspection.exe. Hyphens, not spaces: GitHub turns spaces in release
+         asset names into dots, and the Kosovnice apps menu links to this exact name.
+         Window title and Product keep the spaces. Namespace and project keep the old name. -->
+    <AssemblyName>IMP-Weld-Inspection</AssemblyName>
     <Product>IMP Weld Inspection</Product>
     <Company>IMP Promont</Company>
     <!-- 0.0.0 marks a local build, which never offers updates. Releases get the tag's
@@ -53,7 +55,7 @@
     <None Include="Assets\Fonts\OFL.txt" />
   </ItemGroup>
   <ItemGroup>
-    <None Update="IMP Weld Inspection.config.json">
+    <None Update="IMP-Weld-Inspection.config.json">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
       <ExcludeFromSingleFile>true</ExcludeFromSingleFile>
     </None>

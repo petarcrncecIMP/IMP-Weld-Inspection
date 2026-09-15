@@ -7,18 +7,18 @@ Details in [SPEC.md](SPEC.md); the look in [design/DESIGN.md](design/DESIGN.md).
 
 ## Download
 
-**[IMP Weld Inspection (latest)](https://github.com/petarcrncecIMP/IMP-Weld-Inspection/releases/latest/download/IMP.Weld.Inspection.exe)**
+**[IMP-Weld-Inspection.exe (latest)](https://github.com/petarcrncecIMP/IMP-Weld-Inspection/releases/latest/download/IMP-Weld-Inspection.exe)**
 
-One file, nothing to install: .NET is built in. Put it anywhere and run it. GitHub names
-the download `IMP.Weld.Inspection.exe`; rename it to `IMP Weld Inspection.exe` if you like.
+One file, nothing to install: .NET is built in. Put it anywhere and run it. The Kosovnice
+apps menu links to the same file.
 
 When a newer version is released, the app shows **Posodobi** in its header; one click
 downloads it, swaps the exe and restarts.
 
-`IMP Weld Inspection.config.json` is optional. Without it the app uses the default `U:`
+`IMP-Weld-Inspection.config.json` is optional. Without it the app uses the default `U:`
 paths and skips the CommonData API fallback. To change either, download
-[the config](https://github.com/petarcrncecIMP/IMP-Weld-Inspection/releases/latest/download/IMP.Weld.Inspection.config.json)
-and put it beside the exe with that name.
+[the config](https://github.com/petarcrncecIMP/IMP-Weld-Inspection/releases/latest/download/IMP-Weld-Inspection.config.json)
+and put it beside the exe.
 
 ## Release a new version
 
@@ -28,7 +28,8 @@ git push origin v1.0.3
 ```
 
 GitHub Actions builds the exe (with the tag as its version) and publishes the release; the
-download link above and the in-app updater then pick it up.
+download link above and the in-app updater then pick it up. Keep the asset name
+`IMP-Weld-Inspection.exe`: the Kosovnice apps menu links to it.
 
 ## Build locally
 
@@ -36,5 +37,5 @@ download link above and the in-app updater then pick it up.
 dotnet publish -c Release
 ```
 
-Output: `bin\Release\net8.0-windows\win-x64\publish\IMP Weld Inspection.exe`. Local builds
+Output: `bin\Release\net8.0-windows\win-x64\publish\IMP-Weld-Inspection.exe`. Local builds
 are version 0.0.0 and never offer updates.

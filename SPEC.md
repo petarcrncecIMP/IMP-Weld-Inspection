@@ -19,9 +19,10 @@ every file identifies its weld on its own.
 **Recommended stack:** .NET 8, WPF, single-file self-contained publish
 (`win-x64`). No installer required.
 
-**Name:** **IMP Weld Inspection**: window title, header (`WELD INSPECTION`) and
-executable (`IMP Weld Inspection.exe`, config `IMP Weld Inspection.config.json`).
-GitHub repo `IMP-Weld-Inspection`. The project and namespace keep the original
+**Name:** **IMP Weld Inspection** in the window title and header (`WELD INSPECTION`).
+The executable is `IMP-Weld-Inspection.exe` (config `IMP-Weld-Inspection.config.json`),
+with hyphens: GitHub turns spaces in release asset names into dots, and the Kosovnice
+apps menu links to that exact asset. GitHub repo `IMP-Weld-Inspection`. The project and namespace keep the original
 `IMPWeldPhotos`, like the other tools (`IMPIsoIndexer`, `IMPVaultWatcher`), and so
 does the settings folder, so renaming lost nobody's settings.
 

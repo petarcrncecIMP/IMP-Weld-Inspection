@@ -1,8 +1,8 @@
 # Pushing a tag like v1.2.0 builds the self-contained exe and publishes it as a GitHub
 # release. The asset name never changes, so this link always gets the newest:
-#   https://github.com/petarcrncecIMP/IMP-Weld-Inspection/releases/latest/download/IMP.Weld.Inspection.exe
-# (GitHub turns the spaces in asset names into dots.) The app's own updater reads the
-# same latest release.
+#   https://github.com/petarcrncecIMP/IMP-Weld-Inspection/releases/latest/download/IMP-Weld-Inspection.exe
+# The Kosovnice apps menu links there, so keep the name exactly. The app's own updater reads
+# the same latest release.
 name: Release
 
 on:
@@ -31,6 +31,6 @@ jobs:
       - uses: softprops/action-gh-release@v2
         with:
           files: |
-            publish/IMP Weld Inspection.exe
-            publish/IMP Weld Inspection.config.json
+            publish/IMP-Weld-Inspection.exe
+            publish/IMP-Weld-Inspection.config.json
           generate_release_notes: true
