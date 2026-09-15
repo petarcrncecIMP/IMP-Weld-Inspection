@@ -5,11 +5,13 @@
              PreviewKeyDown="OnPreviewKeyDown">
     <Grid>
         <Grid.ColumnDefinitions>
+            <!-- The preview takes the larger share of any extra width, so a bigger window
+                 means a bigger photo rather than more tile columns. -->
             <ColumnDefinition Width="320" MinWidth="220" />
             <ColumnDefinition Width="5" />
-            <ColumnDefinition Width="*" MinWidth="260" />
+            <ColumnDefinition Width="2*" MinWidth="200" />
             <ColumnDefinition Width="5" />
-            <ColumnDefinition Width="440" MinWidth="300" />
+            <ColumnDefinition Width="3*" MinWidth="320" />
         </Grid.ColumnDefinitions>
 
         <!-- Left: project picker (remembered), search, and that project's isometrije by unit. -->
@@ -25,22 +27,37 @@
                              SelectionChanged="OnIsoSelected" IsSynchronizedWithCurrentItem="False" VirtualizingPanel.IsVirtualizing="True"
                              VirtualizingPanel.IsVirtualizingWhenGrouping="True" VirtualizingPanel.ScrollUnit="Pixel">
                         <ListBox.GroupStyle>
-                            <!-- Unit -->
+                            <!-- Unit: collapsible, closed until opened. Open units are kept in ViewerView (_openUnits). -->
                             <GroupStyle>
-                                <GroupStyle.HeaderTemplate>
-                                    <DataTemplate>
-                                        <DockPanel Margin="12,10,12,2">
-                                            <TextBlock DockPanel.Dock="Right" Text="{Binding ItemCount}" Style="{StaticResource Muted}" Margin="8,0,0,0" />
-                                            <TextBlock Text="{Binding Name}" FontWeight="Bold" Foreground="{DynamicResource TextStrongBrush}"
-                                                       TextTrimming="CharacterEllipsis" />
-                                        </DockPanel>
-                                    </DataTemplate>
-                                </GroupStyle.HeaderTemplate>
+                                <GroupStyle.ContainerStyle>
+                                    <Style TargetType="GroupItem">
+                                        <Setter Property="Template">
+                                            <Setter.Value>
+                                                <ControlTemplate TargetType="GroupItem">
+                                                    <Expander Style="{StaticResource GroupExpander}" Header="{Binding}"
+                                                              Loaded="OnUnitExpanderLoaded" Expanded="OnUnitExpanded" Collapsed="OnUnitCollapsed">
+                                                        <Expander.HeaderTemplate>
+                                                            <DataTemplate>
+                                                                <DockPanel>
+                                                                    <TextBlock DockPanel.Dock="Right" Text="{Binding ItemCount}" Margin="8,0,0,0"
+                                                                               Foreground="{DynamicResource TextMutedBrush}" />
+                                                                    <TextBlock Text="{Binding Name}" FontWeight="Bold" TextTrimming="CharacterEllipsis"
+                                                                               Foreground="{DynamicResource TextStrongBrush}" ToolTip="{Binding Name}" />
+                                                                </DockPanel>
+                                                            </DataTemplate>
+                                                        </Expander.HeaderTemplate>
+                                                        <ItemsPresenter />
+                                                    </Expander>
+                                                </ControlTemplate>
+                                            </Setter.Value>
+                                        </Setter>
+                                    </Style>
+                                </GroupStyle.ContainerStyle>
                             </GroupStyle>
                         </ListBox.GroupStyle>
                         <ListBox.ItemTemplate>
                             <DataTemplate>
-                                <StackPanel Margin="8,0,0,0" ToolTip="{Binding FolderName}">
+                                <StackPanel Margin="19,0,0,0" ToolTip="{Binding FolderName}">
                                     <TextBlock Text="{Binding BomCode}" FontWeight="SemiBold" />
                                     <TextBlock Text="{Binding Title}" Style="{StaticResource Muted}" TextTrimming="CharacterEllipsis" />
                                 </StackPanel>

@@ -31,6 +31,11 @@ public partial class ViewerView : UserControl
     private bool _refreshing;
     private bool _forceReload;
     private bool _settingSource;
+    private bool _applyingExpansion;
+
+    /// <summary>Units the user has opened ("project|unit"). Units start closed; while searching,
+    /// every unit with a match is open instead.</summary>
+    private readonly HashSet<string> _openUnits = new(StringComparer.OrdinalIgnoreCase);
 
     /// <summary>Folder to select on the next refresh, when jumping here from the import table.</summary>
     public string? PendingFolder { get; set; }
@@ -84,6 +89,7 @@ public partial class ViewerView : UserControl
                 ?? (Exists(_settings?.ViewerProject) ? _settings!.ViewerProject : null)
                 ?? (projects.Count == 1 ? projects[0].FolderName : null);
             if (jumped && match != null) RememberProject();
+            if (match != null) _openUnits.Add(UnitKey(match.ProjectName, match.UnitName));
             ProjectBox.SetProjects(projects, _project);
 
             var view = new ListCollectionView(_allIsos);
@@ -177,10 +183,36 @@ public partial class ViewerView : UserControl
         IsoEmptyText.Visibility = message == null ? Visibility.Collapsed : Visibility.Visible;
     }
 
+    // Group containers are rebuilt on every refresh, search and scroll, so each one takes its
+    // open/closed state from _openUnits when it appears.
+    private void OnUnitExpanderLoaded(object sender, RoutedEventArgs e)
+    {
+        if (sender is not Expander { DataContext: CollectionViewGroup group } expander) return;
+        _applyingExpansion = true;
+        expander.IsExpanded = _tokens.Length > 0 || _openUnits.Contains(UnitKey(_project, group.Name?.ToString()));
+        _applyingExpansion = false;
+    }
+
+    private void OnUnitExpanded(object sender, RoutedEventArgs e) => RememberUnit(sender, open: true);
+
+    private void OnUnitCollapsed(object sender, RoutedEventArgs e) => RememberUnit(sender, open: false);
+
+    private void RememberUnit(object sender, bool open)
+    {
+        if (_applyingExpansion || _tokens.Length > 0) return;
+        if (sender is not Expander { DataContext: CollectionViewGroup group }) return;
+        var key = UnitKey(_project, group.Name?.ToString());
+        if (open) _openUnits.Add(key);
+        else _openUnits.Remove(key);
+    }
+
+    private static string UnitKey(string? project, string? unit) => $"{project}|{unit}";
+
     private async void OnIsoSelected(object sender, SelectionChangedEventArgs e)
     {
         // Null when a search hides the selected row: keep showing its photos.
         if (_settingSource || IsoList.SelectedItem is not IsoEntry iso) return;
+        _openUnits.Add(UnitKey(iso.ProjectName, iso.UnitName));
         if (!_forceReload && string.Equals(iso.Path, _currentIso?.Path, StringComparison.OrdinalIgnoreCase)) return;
         await LoadIsoAsync(iso);
     }
