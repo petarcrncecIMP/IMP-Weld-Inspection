@@ -1,0 +1,58 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- Desktop app: watches for an SD card, copies endoscope weld photos into
+       U:\100_Identi\140_Zvari and stamps each with its own name. See SPEC.md and
+       design/DESIGN.md. `dotnet publish -c Release` gives one self-contained
+       IMPWeldPhotos.exe. -->
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <RootNamespace>IMPWeldPhotos</RootNamespace>
+    <AssemblyName>IMPWeldPhotos</AssemblyName>
+    <Product>IMP Weld Photos</Product>
+    <Company>IMP Promont</Company>
+    <Version>1.0.0</Version>
+    <ApplicationIcon>design\icon\IMPWeldPhotos.ico</ApplicationIcon>
+    <RuntimeIdentifier>win-x64</RuntimeIdentifier>
+    <SelfContained>true</SelfContained>
+    <PublishSingleFile>true</PublishSingleFile>
+    <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
+    <!-- Roughly halves the download; costs a moment at start-up. -->
+    <EnableCompressionInSingleFile>true</EnableCompressionInSingleFile>
+    <DebugType Condition="'$(Configuration)' == 'Release'">embedded</DebugType>
+  </PropertyGroup>
+  <ItemGroup>
+    <!-- The WPF SDK leaves these out of the implicit usings. -->
+    <Using Include="System.IO" />
+    <Using Include="System.Net.Http" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="MetadataExtractor" Version="2.8.1" />
+    <!-- Same MSAL line the CommonData Client package pins for net10. -->
+    <PackageReference Include="Microsoft.Identity.Client" Version="4.73.1" />
+    <PackageReference Include="SkiaSharp" Version="2.88.8" />
+    <PackageReference Include="System.Management" Version="8.0.0" />
+  </ItemGroup>
+  <!-- design/ is the source of truth for the look (design/DESIGN.md). Its files are
+       linked in rather than copied, so make_assets.py output flows straight through. -->
+  <ItemGroup>
+    <Page Remove="design\**" />
+    <None Remove="design\**" />
+    <Page Include="design\Theme.Light.xaml" Link="Assets\Theme.Light.xaml" />
+    <Page Include="design\Theme.Dark.xaml" Link="Assets\Theme.Dark.xaml" />
+    <Resource Include="design\icon\IMPWeldPhotos.ico" Link="Assets\IMPWeldPhotos.ico" />
+    <Resource Include="design\logo\imp-logo-white.png" Link="Assets\Images\imp-logo-white.png" />
+    <Resource Include="design\patterns\header-grid.png" Link="Assets\Images\header-grid.png" />
+    <Resource Include="design\images\weld-duotone.jpg" Link="Assets\Images\weld-duotone.jpg" />
+    <Resource Include="Assets\Fonts\BarlowCondensed-Bold.ttf" />
+    <None Include="Assets\Fonts\OFL.txt" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Update="IMPWeldPhotos.config.json">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <ExcludeFromSingleFile>true</ExcludeFromSingleFile>
+    </None>
+  </ItemGroup>
+</Project>

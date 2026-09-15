@@ -1,0 +1,19 @@
+{
+  // Where photos go, and the isometrija tree (with titles.json) they are sorted by.
+  "DestinationRoot": "U:\\100_Identi\\140_Zvari",
+  "IsoRoot": "U:\\100_Identi\\130_Izometrije",
+
+  // CommonData API fallback for BOM codes not in titles.json yet. Leave blank to
+  // skip it: those photos then go to _Nerazvrsceno and move once titles.json knows
+  // them. Get the values from the CommonData project owner. The user needs the
+  // Fab.Read / Fab.Odata roles.
+  "Api": {
+    "BaseUrl": "",
+    "TenantId": "",
+    "ClientId": "",
+    "Scope": ""
+  },
+
+  // Fallback drive poll, in seconds, beside the WMI volume-arrival event.
+  "PollSeconds": 3
+}

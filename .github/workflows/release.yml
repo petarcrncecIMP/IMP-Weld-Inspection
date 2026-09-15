@@ -1,0 +1,34 @@
+# Pushing a tag like v1.2.0 builds the self-contained exe and publishes it as a
+# GitHub release. The asset name never changes, so this link always gets the newest:
+#   https://github.com/petarcrncecIMP/IMPWeldPhotos/releases/latest/download/IMPWeldPhotos.exe
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
+      - name: Publish
+        shell: bash
+        run: |
+          version="${GITHUB_REF_NAME#v}"
+          dotnet publish IMPWeldPhotos.csproj -c Release -p:Version="$version" -o publish
+
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            publish/IMPWeldPhotos.exe
+            publish/IMPWeldPhotos.config.json
+          generate_release_notes: true

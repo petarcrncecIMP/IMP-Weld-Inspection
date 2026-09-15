@@ -1,0 +1,261 @@
+<Window x:Class="IMPWeldPhotos.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:local="clr-namespace:IMPWeldPhotos"
+        Title="IMP Weld Photos"
+        Width="1180" Height="720" MinWidth="960" MinHeight="600"
+        WindowStartupLocation="CenterScreen"
+        Icon="pack://application:,,,/Assets/IMPWeldPhotos.ico"
+        Background="{DynamicResource WindowBackgroundBrush}"
+        Foreground="{DynamicResource TextBrush}"
+        FontFamily="{DynamicResource BodyFont}"
+        FontSize="{DynamicResource BodyFontSize}"
+        UseLayoutRounding="True"
+        TextOptions.TextFormattingMode="Display"
+        Loaded="OnLoaded" Closing="OnClosing" PreviewKeyDown="OnPreviewKeyDown">
+    <Grid>
+        <Grid.RowDefinitions>
+            <!-- 52 = HeaderHeight in the theme; a Double resource can't feed a GridLength. -->
+            <RowDefinition Height="52" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="36" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="56" />
+        </Grid.RowDefinitions>
+
+        <!-- Header: accent, grid lines fading out by 75 % of the width, white logo, title. -->
+        <Grid Grid.Row="0" Panel.ZIndex="2" Background="{DynamicResource AccentBrush}" Effect="{DynamicResource HeaderShadow}">
+            <Rectangle RenderOptions.BitmapScalingMode="NearestNeighbor">
+                <Rectangle.Fill>
+                    <ImageBrush ImageSource="pack://application:,,,/Assets/Images/header-grid.png"
+                                TileMode="Tile" Viewport="0,0,20,20" ViewportUnits="Absolute" Stretch="Fill" />
+                </Rectangle.Fill>
+                <Rectangle.OpacityMask>
+                    <LinearGradientBrush StartPoint="0,0.5" EndPoint="1,0.5">
+                        <GradientStop Offset="0" Color="#FF000000" />
+                        <GradientStop Offset="0.75" Color="#00000000" />
+                    </LinearGradientBrush>
+                </Rectangle.OpacityMask>
+            </Rectangle>
+            <!-- Brand, as Kosovnice's .app-brand: logo 30 px at 85 %, 10 px gap, then the
+                 label behind a 2 px divider of white at 50 %. The label is .app-brand-label:
+                 Segoe UI 13 px bold, uppercase, white at 90 %, letter-spacing 2 px. WPF has
+                 no letter-spacing, so each character is its own TextBlock with a 2 px gap. -->
+            <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="12,0,0,0">
+                <Image Source="pack://application:,,,/Assets/Images/imp-logo-white.png" Height="30" Opacity="0.85"
+                       RenderOptions.BitmapScalingMode="HighQuality" VerticalAlignment="Center" />
+                <Border Margin="10,0,0,0" Padding="10,0,0,0" BorderBrush="#80FFFFFF" BorderThickness="2,0,0,0"
+                        VerticalAlignment="Center">
+                    <ItemsControl ItemsSource="WELD PHOTOS" Focusable="False" IsTabStop="False" VerticalAlignment="Center">
+                        <ItemsControl.ItemsPanel>
+                            <ItemsPanelTemplate>
+                                <StackPanel Orientation="Horizontal" />
+                            </ItemsPanelTemplate>
+                        </ItemsControl.ItemsPanel>
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <TextBlock Text="{Binding}" Margin="0,0,2,0" FontFamily="Segoe UI" FontSize="13"
+                                           FontWeight="Bold" Foreground="#E6FFFFFF" />
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </Border>
+            </StackPanel>
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,0,12,0">
+                <Button x:Name="RescanButton" Style="{StaticResource ToolbarButton}" ToolTip="Preglej znova" Click="OnRescanClick">
+                    <local:Glyph Data="{StaticResource Icon.ArrowClockwise}" Width="18" Height="18" />
+                </Button>
+                <Button x:Name="ThemeButton" Style="{StaticResource ToolbarButton}" ToolTip="Svetla / temna tema"
+                        Margin="8,0,0,0" Click="OnThemeClick">
+                    <local:Glyph x:Name="ThemeGlyph" Data="{StaticResource Icon.Moon}" Width="18" Height="18" />
+                </Button>
+            </StackPanel>
+        </Grid>
+
+        <!-- Import progress, flush under the header. -->
+        <ProgressBar x:Name="ImportProgressBar" Grid.Row="1" Style="{StaticResource ThinProgress}"
+                     Minimum="0" Maximum="1" Visibility="Collapsed" />
+
+        <!-- Context bar -->
+        <Border Grid.Row="2" Background="{DynamicResource SurfaceBrush}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="0,0,0,1">
+            <DockPanel Margin="16,0" VerticalAlignment="Center">
+                <local:Glyph Data="{StaticResource Icon.SdCard}" Foreground="{DynamicResource TextMutedBrush}" Margin="0,0,8,0" />
+                <TextBlock x:Name="ContextText" Style="{StaticResource Muted}" FontSize="{DynamicResource BodyFontSize}"
+                           TextTrimming="CharacterEllipsis" VerticalAlignment="Center" Text="Čakam na SD kartico" />
+            </DockPanel>
+        </Border>
+
+        <!-- Problems that stop work: share offline, bad config. -->
+        <Border x:Name="Banner" Grid.Row="3" Background="{DynamicResource DangerTintBrush}" Padding="16,10" Visibility="Collapsed">
+            <DockPanel>
+                <local:Glyph Data="{StaticResource Icon.WarningCircle}" Foreground="{DynamicResource DangerBrush}"
+                             VerticalAlignment="Top" Margin="0,1,8,0" />
+                <TextBlock x:Name="BannerText" TextWrapping="Wrap" Foreground="{DynamicResource DangerBrush}" />
+            </DockPanel>
+        </Border>
+
+        <!-- Table / empty state -->
+        <Grid Grid.Row="4" Margin="16,12,16,8">
+            <DataGrid x:Name="WeldGrid" Style="{StaticResource WeldGrid}" Visibility="Collapsed">
+                <DataGrid.Columns>
+                    <DataGridTemplateColumn Header="Sklop" Width="170" SortMemberPath="Unit">
+                        <DataGridTemplateColumn.CellTemplate>
+                            <DataTemplate>
+                                <TextBlock Text="{Binding Unit}" ToolTip="{Binding Unit}" Style="{StaticResource CellText}" />
+                            </DataTemplate>
+                        </DataGridTemplateColumn.CellTemplate>
+                    </DataGridTemplateColumn>
+                    <DataGridTemplateColumn Header="Izometrija" Width="2*" SortMemberPath="Isometrija">
+                        <DataGridTemplateColumn.CellTemplate>
+                            <DataTemplate>
+                                <TextBlock Text="{Binding Isometrija}" ToolTip="{Binding Isometrija}" Style="{StaticResource CellText}" />
+                            </DataTemplate>
+                        </DataGridTemplateColumn.CellTemplate>
+                    </DataGridTemplateColumn>
+                    <DataGridTemplateColumn Header="Zvar" Width="80" SortMemberPath="WeldLabel">
+                        <DataGridTemplateColumn.CellTemplate>
+                            <DataTemplate>
+                                <TextBlock Text="{Binding WeldLabel}" Style="{StaticResource CellText}" />
+                            </DataTemplate>
+                        </DataGridTemplateColumn.CellTemplate>
+                    </DataGridTemplateColumn>
+                    <DataGridTemplateColumn Header="Fotografij" Width="90" SortMemberPath="Photos">
+                        <DataGridTemplateColumn.CellTemplate>
+                            <DataTemplate>
+                                <TextBlock Text="{Binding Photos}" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                            </DataTemplate>
+                        </DataGridTemplateColumn.CellTemplate>
+                    </DataGridTemplateColumn>
+                    <DataGridTemplateColumn Header="Status" Width="130" SortMemberPath="StatusText">
+                        <DataGridTemplateColumn.CellTemplate>
+                            <DataTemplate>
+                                <Border x:Name="Chip" HorizontalAlignment="Left" VerticalAlignment="Center" Padding="8,2"
+                                        CornerRadius="{DynamicResource ChipRadius}" Background="{DynamicResource SuccessTintBrush}"
+                                        ToolTip="{Binding StatusTip}">
+                                    <TextBlock x:Name="ChipText" Text="{Binding StatusText}" FontSize="{DynamicResource TinyFontSize}"
+                                               FontWeight="SemiBold" Foreground="{DynamicResource SuccessBrush}" />
+                                </Border>
+                                <DataTemplate.Triggers>
+                                    <DataTrigger Binding="{Binding Status}" Value="AlreadyImported">
+                                        <Setter TargetName="Chip" Property="Background" Value="{DynamicResource NeutralTintBrush}" />
+                                        <Setter TargetName="ChipText" Property="Foreground" Value="{DynamicResource TextMutedBrush}" />
+                                    </DataTrigger>
+                                    <DataTrigger Binding="{Binding Status}" Value="PartlyNew">
+                                        <Setter TargetName="Chip" Property="Background" Value="{DynamicResource WarningTintBrush}" />
+                                        <Setter TargetName="ChipText" Property="Foreground" Value="{DynamicResource WarningBrush}" />
+                                    </DataTrigger>
+                                    <DataTrigger Binding="{Binding Status}" Value="Unresolved">
+                                        <Setter TargetName="Chip" Property="Background" Value="{DynamicResource WarningTintBrush}" />
+                                        <Setter TargetName="ChipText" Property="Foreground" Value="{DynamicResource WarningBrush}" />
+                                    </DataTrigger>
+                                    <DataTrigger Binding="{Binding Status}" Value="Failed">
+                                        <Setter TargetName="Chip" Property="Background" Value="{DynamicResource DangerTintBrush}" />
+                                        <Setter TargetName="ChipText" Property="Foreground" Value="{DynamicResource DangerBrush}" />
+                                    </DataTrigger>
+                                </DataTemplate.Triggers>
+                            </DataTemplate>
+                        </DataGridTemplateColumn.CellTemplate>
+                    </DataGridTemplateColumn>
+                    <DataGridTemplateColumn Header="Cilj" Width="3*" SortMemberPath="DestinationFolder">
+                        <DataGridTemplateColumn.CellTemplate>
+                            <DataTemplate>
+                                <TextBlock Text="{Binding DestinationFolder}" ToolTip="{Binding DestinationFolder}"
+                                           Style="{StaticResource CellText}" Foreground="{DynamicResource TextMutedBrush}" />
+                            </DataTemplate>
+                        </DataGridTemplateColumn.CellTemplate>
+                    </DataGridTemplateColumn>
+                </DataGrid.Columns>
+            </DataGrid>
+
+            <StackPanel x:Name="EmptyState" HorizontalAlignment="Center" VerticalAlignment="Center">
+                <Border Width="220" Height="220" CornerRadius="16" Opacity="0.9" HorizontalAlignment="Center"
+                        BorderBrush="{DynamicResource TextMutedBrush}" BorderThickness="{DynamicResource EmptyImageOutline}">
+                    <Border.Background>
+                        <ImageBrush ImageSource="pack://application:,,,/Assets/Images/weld-duotone.jpg" Stretch="UniformToFill" />
+                    </Border.Background>
+                </Border>
+                <TextBlock x:Name="EmptyTitle" Text="VSTAVITE SD KARTICO" Style="{StaticResource Heading}"
+                           Foreground="{DynamicResource TextMutedBrush}" HorizontalAlignment="Center" Margin="0,20,0,4" />
+                <TextBlock x:Name="EmptyText" Text="Aplikacija jo prepozna samodejno." HorizontalAlignment="Center"
+                           TextAlignment="Center" TextWrapping="Wrap" MaxWidth="420" />
+                <Button Style="{StaticResource SecondaryButton}" HorizontalAlignment="Center" Margin="0,16,0,0" Click="OnRescanClick">
+                    <StackPanel Orientation="Horizontal">
+                        <local:Glyph Data="{StaticResource Icon.ArrowClockwise}" Margin="0,0,8,0" />
+                        <TextBlock Text="Preglej znova" />
+                    </StackPanel>
+                </Button>
+            </StackPanel>
+        </Grid>
+
+        <!-- Warnings about the plan: unresolved BOMs, unit mismatches, duplicate folder codes. -->
+        <Border x:Name="WarningsPanel" Grid.Row="5" Margin="16,0,16,8" Padding="12,8" Visibility="Collapsed"
+                Background="{DynamicResource SurfaceBrush}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1"
+                CornerRadius="{DynamicResource ButtonRadius}">
+            <ScrollViewer MaxHeight="96" VerticalScrollBarVisibility="Auto">
+                <ItemsControl x:Name="WarningsList">
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                            <DockPanel Margin="0,2">
+                                <local:Glyph Data="{StaticResource Icon.WarningCircle}" Foreground="{DynamicResource WarningBrush}"
+                                             Width="14" Height="14" VerticalAlignment="Top" Margin="0,1,8,0" />
+                                <TextBlock Text="{Binding}" TextWrapping="Wrap" FontSize="{DynamicResource SmallFontSize}" />
+                            </DockPanel>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+            </ScrollViewer>
+        </Border>
+
+        <!-- Footer -->
+        <Border Grid.Row="6" Background="{DynamicResource SurfaceBrush}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="0,1,0,0">
+            <DockPanel Margin="16,0" VerticalAlignment="Center">
+                <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
+                    <Button x:Name="OpenFolderButton" Style="{StaticResource SecondaryButton}" Click="OnOpenFolderClick">
+                        <StackPanel Orientation="Horizontal">
+                            <local:Glyph Data="{StaticResource Icon.FolderOpen}" Margin="0,0,8,0" />
+                            <TextBlock Text="Odpri mapo" />
+                        </StackPanel>
+                    </Button>
+                    <Button x:Name="ClearCardButton" Style="{StaticResource DangerButton}" Margin="8,0,0,0"
+                            Visibility="Collapsed" Click="OnClearCardClick">
+                        <StackPanel Orientation="Horizontal">
+                            <local:Glyph Data="{StaticResource Icon.Trash}" Margin="0,0,8,0" />
+                            <TextBlock Text="Počisti kartico" />
+                        </StackPanel>
+                    </Button>
+                    <Button x:Name="CancelButton" Style="{StaticResource SecondaryButton}" Margin="8,0,0,0"
+                            Visibility="Collapsed" Click="OnCancelClick" Content="Prekliči" />
+                    <Button x:Name="ImportButton" Style="{StaticResource PrimaryButton}" Margin="8,0,0,0"
+                            IsEnabled="False" Click="OnImportClick">
+                        <StackPanel Orientation="Horizontal">
+                            <local:Glyph Data="{StaticResource Icon.ArrowSquareIn}" Margin="0,0,8,0" />
+                            <TextBlock Text="UVOZI" />
+                        </StackPanel>
+                    </Button>
+                </StackPanel>
+                <TextBlock x:Name="FooterText" Style="{StaticResource Muted}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+            </DockPanel>
+        </Border>
+
+        <!-- Dialog host: dims the window, card fades and scales in. -->
+        <Grid x:Name="DialogOverlay" Grid.RowSpan="7" Panel.ZIndex="10" Background="{DynamicResource OverlayBrush}" Visibility="Collapsed">
+            <Border x:Name="DialogCard" Width="360" HorizontalAlignment="Center" VerticalAlignment="Center"
+                    Background="{DynamicResource SurfaceBrush}" CornerRadius="{DynamicResource DialogRadius}"
+                    Padding="26,24" Effect="{DynamicResource DialogShadow}" RenderTransformOrigin="0.5,0.5">
+                <Border.RenderTransform>
+                    <ScaleTransform x:Name="DialogScale" />
+                </Border.RenderTransform>
+                <StackPanel>
+                    <DockPanel Margin="0,0,0,12">
+                        <local:Glyph x:Name="DialogGlyph" Width="22" Height="22" Margin="0,0,10,0" VerticalAlignment="Center" />
+                        <TextBlock x:Name="DialogTitle" Style="{StaticResource Heading}" VerticalAlignment="Center" TextWrapping="Wrap" />
+                    </DockPanel>
+                    <ContentControl x:Name="DialogBody" Focusable="False" />
+                    <StackPanel x:Name="DialogButtons" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,20,0,0" />
+                </StackPanel>
+            </Border>
+        </Grid>
+    </Grid>
+</Window>
