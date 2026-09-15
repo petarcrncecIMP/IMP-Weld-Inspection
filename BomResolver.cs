@@ -60,13 +60,13 @@ public sealed class BomResolver
         }
     }
 
-    public async Task<BomResolution> ResolveAsync(int bomCode, int? cardUnitCode, CancellationToken ct)
+    public async Task<BomResolution> ResolveAsync(int bomCode, CancellationToken ct)
     {
         if (_cache.TryGetValue(bomCode, out var hit)) return hit;
         var info = FromTitles(bomCode, out var titlesReason);
         var res = info != null
             ? new BomResolution(info, null)
-            : await FromApiAsync(bomCode, cardUnitCode, titlesReason, ct);
+            : await FromApiAsync(bomCode, titlesReason, ct);
         _cache[bomCode] = res;
         return res;
     }
@@ -104,7 +104,7 @@ public sealed class BomResolver
                            projectCode, segs[0], unitCode, segs[1], "titles.json");
     }
 
-    private async Task<BomResolution> FromApiAsync(int bomCode, int? cardUnitCode, string titlesReason, CancellationToken ct)
+    private async Task<BomResolution> FromApiAsync(int bomCode, string titlesReason, CancellationToken ct)
     {
         if (_api == null) return new(null, $"{titlesReason}; CommonData API ni nastavljen");
         if (_api.DisabledReason is { } off) return new(null, $"{titlesReason}; {off}");
@@ -125,9 +125,11 @@ public sealed class BomResolver
 
         if (rows.Count == 0) return new(null, $"{titlesReason}; tudi v bazi je ni");
 
-        // FabBomIsoView is keyed by BomCode + UnitCode, so one BOM can come back once
-        // per unit. Prefer the unit the card files it under.
-        var row = rows.FirstOrDefault(r => r.UnitCode == cardUnitCode) ?? rows[0];
+        // FabBomIsoView is keyed by BomCode + UnitCode, so one BOM can come back once per
+        // unit. The card doesn't say which unit, so more than one is left unresolved.
+        var units = rows.Select(r => (r.ProjectCode, r.UnitCode)).Distinct().Count();
+        if (units > 1) return new(null, $"{titlesReason}; v bazi spada v {units} sklope, ni jasno v katerega");
+        var row = rows[0];
         if (string.IsNullOrWhiteSpace(row.ProjectCode) || row.UnitCode == null)
             return new(null, $"{titlesReason}; v bazi nima projekta ali sklopa");
 

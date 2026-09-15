@@ -18,8 +18,6 @@ public sealed class WeldPlan
     public required int BomCode { get; init; }
     public required string WeldLabel { get; init; }
     public required string SortKey { get; init; }
-    public required int CardUnitCode { get; init; }
-    public required string CardUnitName { get; init; }
     public required IReadOnlyList<FileInfo> Files { get; init; }
     public required BomResolution Resolution { get; init; }
     public required string DestinationFolder { get; init; }
@@ -31,7 +29,7 @@ public sealed class WeldPlan
         $"{bomCode}-{FolderConventions.SanitizeFolderName(weldLabel)}";
 
     public string FilePrefix => PrefixFor(BomCode, WeldLabel);
-    public string Unit => Resolution.Info?.UnitFolderName ?? $"{CardUnitCode}-{CardUnitName}";
+    public string Unit => Resolution.Info?.UnitFolderName ?? "—";
     public string Isometrija => Resolution.Info?.IsoFolderName ?? BomCode.ToString();
     public int Photos => Files.Count;
     public long Bytes => Files.Sum(f => f.Length);
@@ -81,10 +79,7 @@ public static class ImportPlanner
 
         foreach (var bomGroup in scan.Welds.GroupBy(w => w.BomCode).OrderBy(g => g.Key))
         {
-            var folders = bomGroup.ToList();
-            var first = folders[0];
-            var res = await resolver.ResolveAsync(bomGroup.Key, first.UnitCode, ct);
-            foreach (var note in UnitNotes(bomGroup.Key, folders, res)) warnings.Add(note);
+            var res = await resolver.ResolveAsync(bomGroup.Key, ct);
 
             string destination;
             string? existing;
@@ -96,7 +91,7 @@ public static class ImportPlanner
             else
             {
                 warnings.Add($"Izometrija {bomGroup.Key} je nerazvrščena: {res.Reason}.");
-                destination = tree.UnresolvedIsoFolder(first.UnitCode, first.UnitName, bomGroup.Key);
+                destination = tree.UnresolvedIsoFolder(bomGroup.Key);
                 existing = Directory.Exists(destination) ? destination : null;
             }
 
@@ -113,19 +108,17 @@ public static class ImportPlanner
                 }
             }
 
-            foreach (var weldGroup in folders.GroupBy(w => w.WeldLabel, StringComparer.Ordinal))
+            // One isometrija folder holds each weld label once, but grouping keeps two
+            // folders that differ only in the NNN prefix together as one weld.
+            foreach (var weldGroup in bomGroup.GroupBy(w => w.WeldLabel, StringComparer.Ordinal))
             {
-                var files = weldGroup.SelectMany(w => w.Files)
-                                     .DistinctBy(f => f.FullName, StringComparer.OrdinalIgnoreCase)
-                                     .ToList();
+                var files = weldGroup.SelectMany(w => w.Files).ToList();
                 var already = Numbering.CountImported(manifest, WeldPlan.PrefixFor(bomGroup.Key, weldGroup.Key));
                 var plan = new WeldPlan
                 {
                     BomCode = bomGroup.Key,
                     WeldLabel = weldGroup.Key,
                     SortKey = Path.GetFileName(weldGroup.First().Path),
-                    CardUnitCode = first.UnitCode,
-                    CardUnitName = first.UnitName,
                     Files = files,
                     Resolution = res,
                     DestinationFolder = destination,
@@ -149,26 +142,6 @@ public static class ImportPlanner
         };
     }
 
-    /// <summary>The card's unit folder is only a hint: the resolved unit wins, and a
-    /// disagreement is reported.</summary>
-    private static IEnumerable<string> UnitNotes(int bomCode, List<WeldFolder> folders, BomResolution res)
-    {
-        var cardUnits = folders.Select(f => (f.UnitCode, f.UnitName)).Distinct().ToList();
-        var list = string.Join(", ", cardUnits.Select(u => $"{u.UnitCode}-{u.UnitName}"));
-        if (res.Info is not { } info)
-        {
-            if (cardUnits.Count > 1)
-                yield return $"Izometrija {bomCode} je na kartici pod več sklopi ({list}); nerazvrščene " +
-                             $"fotografije gredo pod {cardUnits[0].UnitCode}-{cardUnits[0].UnitName}.";
-            yield break;
-        }
-        if (cardUnits.Count > 1)
-            yield return $"Izometrija {bomCode} je na kartici pod več sklopi ({list}); " +
-                         $"uporabljen je sklop '{info.UnitFolderName}' iz {info.Source}.";
-        else if (cardUnits[0].UnitCode.ToString() != info.UnitCode)
-            yield return $"Izometrija {bomCode} je na kartici pod sklopom {list}, " +
-                         $"po {info.Source} pa spada v sklop '{info.UnitFolderName}' ({info.UnitCode}).";
-    }
 }
 
 /// <summary>The -{n} in {BomCode}-{WeldLabel}-{n}.{ext}.</summary>

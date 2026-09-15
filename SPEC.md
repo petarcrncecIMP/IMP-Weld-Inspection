@@ -33,15 +33,15 @@ extracted onto the card. The source of truth for the naming is
 `IMP_Kosovnice/src/folderStructure.ts`.
 
 ```
-<card root or any subfolder up to 2 levels deep>\
-  {UnitCode}-{UnitName}\            e.g.  1000004-Field Lines
-    {BomCode}\                      e.g.  2000487          (always 7 digits)
-      {NNN}_{WeldLabel}\            e.g.  002_W2a
-        <1 or more endoscope images>
+<card root>\
+  {BomCode}\                        e.g.  2000487          (always 7 digits)
+    {NNN}_{WeldLabel}\              e.g.  002_W2a
+      <1 or more endoscope images>
 ```
 
-- **UnitCode** — integer. **UnitName** — free text (sanitized: `" * : < > ? / \ |`
-  replaced by `-`).
+The isometrija folders are **always directly on the card root**. There is no unit
+folder on the card: the unit comes from `titles.json` or the API (§3).
+
 - **BomCode** — the isometrija code, exactly 7 digits.
 - **NNN** — the weld number, integer part, zero-padded to 3 digits. It only
   exists so endoscopes that sort by name list welds in order. Ignore it when
@@ -51,18 +51,15 @@ extracted onto the card. The source of truth for the naming is
   inserted welds (`W16.1`), and an optional lowercase repair letter
   (`W2a`, `W2b`). Examples: `W1`, `FW3`, `W16.1`, `W2a`, `W16.1b`.
 - A weld folder can be empty (not photographed yet) or hold one or more images.
-- The card may carry a whole project, one unit, or one isometrija.
+- The card may carry any number of isometrije.
 
 ### Detection
 
 1. Watch for volume arrival: `ManagementEventWatcher` on
    `Win32_VolumeChangeEvent` (EventType 2), with a `DriveInfo.GetDrives()` poll
    every few seconds as a fallback. Only consider `DriveType.Removable`.
-2. **Light scan** of the new drive, depth-limited, never a full recursive walk:
-   look at the root and up to **2 levels** of subfolders for a folder that
-   matches the unit pattern and contains at least one BOM folder that contains at
-   least one weld folder:
-   - unit: `^\d+-.+$`
+2. **Light scan** of the new drive, never a full recursive walk: list the root
+   for BOM folders that contain at least one weld folder, and list only those:
    - BOM: `^\d{7}$`
    - weld: `^\d{3}_F?W\d+(\.\d)?[a-z]?$`
 3. A drive with no match is ignored silently. A match brings the app window
@@ -123,8 +120,7 @@ must be copied rather than reinvented:
 
 ### Resolving project, unit and BOM name
 
-The card only has UnitCode, UnitName and BomCode. Resolve each BomCode in this
-order:
+The card only has the BomCode. Resolve each BomCode in this order:
 
 1. **`U:\100_Identi\130_Izometrije\titles.json`** (offline, no sign-in, fast).
    It maps BomCode → drawing path relative to that root:
@@ -147,9 +143,10 @@ order:
    clientId, scopes)`, Entra public client, interactive sign-in, token cache).
    See `Autodesk_ext\SharedLogic\CommonDataApi.vb`. The user needs the
    `Fab.Read` / `Fab.Odata` roles. Ask the project owner for the base URL,
-   tenant, client id and scope; do not hard-code a guess.
+   tenant, client id and scope; do not hard-code a guess. A BomCode that comes
+   back under more than one unit counts as unresolved.
 3. **Unresolved:** do not guess. Copy into
-   `U:\100_Identi\140_Zvari\_Nerazvrsceno\{UnitCode}-{UnitName}\{BomCode}\` with
+   `U:\100_Identi\140_Zvari\_Nerazvrsceno\{BomCode}\` with
    the same file naming, and list it in the summary. Running the import again
    later, once the BOM is known, moves it to the right place.
 
@@ -249,12 +246,9 @@ SHA-256, stamped yes/no, result) to `%LOCALAPPDATA%\IMP\IMPWeldPhotos\logs\`.
 - `U:` not mapped or offline → clear message before anything is scanned.
 - Duplicate code in `desktop.ini` among sibling folders (two folders claiming one
   code) → don't pick one silently. Report it, as `IndexFoldersByCode` warns.
-- Weld label or unit name containing characters invalid in file names → sanitize
-  with the same rules as folders.
-- The same BomCode appears under two different unit folders on the card → trust
-  the resolved unit from `titles.json` or the API, and note the mismatch in the
-  summary.
-- Very large cards → keep the scan depth-limited (§2). Hash sources during
+- Weld label containing characters invalid in file names → sanitize with the
+  same rules as folders.
+- Very large cards → keep the scan to the root and its BOM folders (§2). Hash sources during
   import, not during the preview scan. The preview marks a weld
   "already imported" from the manifest's file names and counts, and exact
   source hashes are checked at import.

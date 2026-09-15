@@ -21,11 +21,9 @@ public sealed class DestinationTree
         FolderConventions.SanitizeFolderName(b.UnitFolderName),
         FolderConventions.SanitizeFolderName(b.IsoFolderName));
 
-    public string UnresolvedIsoFolder(int unitCode, string unitName, int bomCode) => Path.Combine(
-        _root,
-        UnresolvedFolderName,
-        FolderConventions.SanitizeFolderName($"{unitCode}-{unitName}"),
-        bomCode.ToString());
+    /// <summary>The card carries no unit, so parked photos are filed by BOM code alone.</summary>
+    public string UnresolvedIsoFolder(int bomCode) =>
+        Path.Combine(_root, UnresolvedFolderName, bomCode.ToString());
 
     /// <summary>The isometrija folder as it exists now, or null. For the preview:
     /// creates and renames nothing.</summary>

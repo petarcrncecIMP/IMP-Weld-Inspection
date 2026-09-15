@@ -299,29 +299,22 @@ public sealed class Importer
         var parked = Path.Combine(_cfg.DestinationRoot, DestinationTree.UnresolvedFolderName);
         if (!Directory.Exists(parked)) return;
 
-        foreach (var unitDir in Directory.GetDirectories(parked))
+        foreach (var bomDir in Directory.GetDirectories(parked))
         {
-            var m = Regex.Match(Path.GetFileName(unitDir), @"^(\d+)-");
-            int? unitCode = m.Success && int.TryParse(m.Groups[1].Value, out var uc) ? uc : null;
+            ct.ThrowIfCancellationRequested();
+            var dirName = Path.GetFileName(bomDir);
+            if (dirName.Length != 7 || !int.TryParse(dirName, out var bomCode)) continue;
 
-            foreach (var bomDir in Directory.GetDirectories(unitDir))
+            var res = await _resolver.ResolveAsync(bomCode, ct);
+            if (res.Info == null) continue;
+            try
             {
-                ct.ThrowIfCancellationRequested();
-                var dirName = Path.GetFileName(bomDir);
-                if (dirName.Length != 7 || !int.TryParse(dirName, out var bomCode)) continue;
-
-                var res = await _resolver.ResolveAsync(bomCode, unitCode, ct);
-                if (res.Info == null) continue;
-                try
-                {
-                    MoveResolved(bomDir, res.Info);
-                }
-                catch (Exception ex)
-                {
-                    _result.Notes.Add($"Nerazvrščenih fotografij izometrije {bomCode} ni mogoče premakniti: {ex.Message}");
-                }
+                MoveResolved(bomDir, res.Info);
             }
-            TryDeleteEmptyDirectory(unitDir);
+            catch (Exception ex)
+            {
+                _result.Notes.Add($"Nerazvrščenih fotografij izometrije {bomCode} ni mogoče premakniti: {ex.Message}");
+            }
         }
         TryDeleteEmptyDirectory(parked);
     }
