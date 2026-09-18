@@ -133,7 +133,7 @@ public sealed class Importer
         }
         try
         {
-            if (manifest.DropMissing()) manifest.Save();
+            if (manifest.DropMissing()) await RetryAsync(manifest.Save, ct);
         }
         catch (Exception ex)
         {
@@ -245,26 +245,31 @@ public sealed class Importer
         }
 
         var moved = false;
+        var step = "zapis fotografije";
         try
         {
             if (bytes != null)
             {
                 var stamped = PhotoStamper.Stamp(bytes, Path.GetFileNameWithoutExtension(name), ext, exif);
                 await WritePartAsync(part, stamped.Bytes, ct);
+                step = "preverjanje zapisa";
                 if (!PhotoStamper.Verify(part, stamped.Width, stamped.Height, stamped.Bytes.Length))
                     throw new IOException("zapisane slike ni mogoče prebrati nazaj");
             }
             else
             {
                 await CopyPartAsync(file.FullName, part, ct);
+                step = "preverjanje zapisa";
                 if (new FileInfo(part).Length != length)
                     throw new IOException("velikost kopije se ne ujema z izvorom");
             }
 
-            File.Move(part, final);
+            step = "preimenovanje v končno ime";
+            await RetryAsync(() => File.Move(part, final), ct);
             moved = true;
             manifest.Files[name] = hash;
-            manifest.Save();
+            step = $"zapis v {Manifest.FileName}";
+            await RetryAsync(manifest.Save, ct);
         }
         catch (Exception ex)
         {
@@ -277,7 +282,7 @@ public sealed class Importer
             }
             if (ex is OperationCanceledException) throw;
             if (!CardPresent()) throw new CardRemovedException();
-            Fail(weld, file, final, hash, isImage, ex.Message);
+            Fail(weld, file, final, hash, isImage, $"{step}: {ex.Message}");
             return n;
         }
 
@@ -377,6 +382,27 @@ public sealed class Importer
     // ─── Helpers ─────────────────────────────────────────────────────────────
 
     private bool CardPresent() => Directory.Exists(_cardRoot);
+
+    /// <summary>On a network share, antivirus or indexing opens a freshly written file for a
+    /// moment, and renaming or replacing it then fails with "Access to the path is denied".
+    /// Those locks clear quickly, so the steps that rename files try again for about four
+    /// seconds before giving up.</summary>
+    private static async Task RetryAsync(Action action, CancellationToken ct)
+    {
+        int[] delays = { 100, 250, 500, 1000, 2000 };
+        for (var attempt = 0; ; attempt++)
+        {
+            try
+            {
+                action();
+                return;
+            }
+            catch (Exception ex) when ((ex is IOException or UnauthorizedAccessException) && attempt < delays.Length)
+            {
+                await Task.Delay(delays[attempt], ct);
+            }
+        }
+    }
 
     private static FileStream OpenSource(string path) =>
         new(path, FileMode.Open, FileAccess.Read, FileShare.Read, 1 << 20, FileOptions.Asynchronous | FileOptions.SequentialScan);
