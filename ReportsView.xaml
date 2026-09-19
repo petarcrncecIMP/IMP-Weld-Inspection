@@ -22,6 +22,13 @@
                         <TextBlock Text="Novo poročilo" />
                     </StackPanel>
                 </Button>
+                <Button x:Name="RegenerateButton" DockPanel.Dock="Top" Style="{StaticResource SecondaryButton}"
+                        Margin="12,0,12,8" Click="OnRegenerateAllClick">
+                    <StackPanel Orientation="Horizontal">
+                        <local:Glyph Data="{StaticResource Icon.ArrowClockwise}" Margin="0,0,8,0" />
+                        <TextBlock x:Name="RegenerateText" Text="Osveži vse PDF-je" />
+                    </StackPanel>
+                </Button>
                 <TextBlock x:Name="ReportCountText" DockPanel.Dock="Bottom" Style="{StaticResource Muted}" Margin="12,6,12,8"
                            TextTrimming="CharacterEllipsis" />
                 <ListBox x:Name="ReportList" Style="{StaticResource PlainList}" SelectionChanged="OnReportSelected"
@@ -37,10 +44,20 @@
                                     <TextBlock Text="{Binding Number}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
                                 </DockPanel>
                                 <TextBlock Text="{Binding Summary}" Style="{StaticResource Muted}" TextTrimming="CharacterEllipsis" />
+                                <TextBlock x:Name="PdfState" Text="brez PDF-ja" Style="{StaticResource Muted}" FontSize="11" />
                             </StackPanel>
                             <DataTemplate.Triggers>
                                 <DataTrigger Binding="{Binding HasPdf}" Value="True">
                                     <Setter TargetName="PdfMark" Property="Visibility" Value="Visible" />
+                                    <Setter TargetName="PdfState" Property="Visibility" Value="Collapsed" />
+                                </DataTrigger>
+                                <!-- Edited in Word after the PDF was made: amber, and said in words. -->
+                                <DataTrigger Binding="{Binding IsPdfStale}" Value="True">
+                                    <Setter TargetName="PdfMark" Property="Foreground" Value="{DynamicResource WarningBrush}" />
+                                    <Setter TargetName="PdfMark" Property="ToolTip" Value="PDF je starejši od dokumenta" />
+                                    <Setter TargetName="PdfState" Property="Visibility" Value="Visible" />
+                                    <Setter TargetName="PdfState" Property="Text" Value="PDF je zastarel – osvežite ga" />
+                                    <Setter TargetName="PdfState" Property="Foreground" Value="{DynamicResource WarningBrush}" />
                                 </DataTrigger>
                             </DataTemplate.Triggers>
                         </DataTemplate>

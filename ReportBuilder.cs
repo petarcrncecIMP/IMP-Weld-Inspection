@@ -201,7 +201,12 @@ public static class ReportBuilder
                     .Replace("{{Isometrija}}", iso.BomCode));
                 if (photoMarker != null) KeepWithPhotos(line);
                 template.InsertBeforeSelf(line);
-                if (photoMarker != null) template.InsertBeforeSelf(PhotoTable(main, photos, CaptionStyle(photoMarker), ref id));
+                if (photoMarker != null)
+                {
+                    // A blank line under the heading, kept with it and with the photos.
+                    template.InsertBeforeSelf(new W.Paragraph(new W.ParagraphProperties(new W.KeepNext())));
+                    template.InsertBeforeSelf(PhotoTable(main, photos, CaptionStyle(photoMarker), ref id));
+                }
             }
             template.Remove();
             photoMarker?.Remove();
@@ -260,7 +265,9 @@ public static class ReportBuilder
 
         for (var i = 0; i < photos.Count; i += 2)
         {
-            var row = new W.TableRow();
+            // CantSplit: the row (photos and their names) moves to the next page whole,
+            // instead of leaving a caption behind under an empty frame.
+            var row = new W.TableRow(new W.TableRowProperties(new W.CantSplit()));
             for (var c = 0; c < 2; c++)
             {
                 var photo = i + c < photos.Count ? photos[i + c] : null;
@@ -272,6 +279,8 @@ public static class ReportBuilder
                 }
                 else
                 {
+                    // No KeepNext here: inside a table it would chain every row to the next and
+                    // push a whole isometrija to a fresh page. CantSplit on the row is enough.
                     cell.Append(new W.Paragraph(new W.ParagraphProperties(new W.SpacingBetweenLines { After = "0" }),
                                                 ImageRun(main, photo, id++)));
                     cell.Append(Caption(Path.GetFileNameWithoutExtension(photo.Name), captionStyle));

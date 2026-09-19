@@ -331,6 +331,14 @@ A third page beside Uvoz and Pregled, for finished reports:
   The report can also be opened in Word for editing or shown in Explorer.
 - **Novo poročilo** lives here too: pick the skid (with its photo count; a skid without
   photos can't be picked) and the number, and the new report is selected when it's done.
+- **Stale PDFs** are marked: a report whose document was changed in Word after its PDF was
+  made shows an amber mark and "PDF je zastarel" in the list, and its **Osveži PDF** button turns
+  amber; one without a PDF says so. The page re-reads the reports when the app comes back to
+  the front, so an edit in Word shows up at once.
+- **Osveži PDF-je** makes the project's PDFs again — those missing or stale (the button turns
+  amber and counts them), or all of them on request — through a single Word, with progress.
+- Annex layout: a blank line after each "Isometry no." heading, the heading kept with its first
+  photo row, and photo rows that can't split, so a caption never lands on the next page.
 - **Delete** throws the whole report folder away after spelling out what goes: the document,
   the PDF and the stamped copies. It is safe because the imported photos stay on the share and
   the report can be made again; the viewer lets go of the PDF first, so the folder is free.

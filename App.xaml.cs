@@ -27,7 +27,7 @@ public partial class App : Application
         {
             _ownsMutex = true;
         }
-        if (_ownsMutex) Updater.DeleteLeftover();
+        if (_ownsMutex) _ = Updater.DeleteLeftoverSoonAsync();
         if (!_ownsMutex)
         {
             try

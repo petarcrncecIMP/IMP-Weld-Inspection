@@ -34,6 +34,9 @@ public partial class ReportsView : UserControl
     /// <summary>Asks the window to delete this report, warning first.</summary>
     public event Func<ReportEntry, Task>? DeleteRequested;
 
+    /// <summary>Asks the window to make the PDFs of these reports again.</summary>
+    public event Func<IReadOnlyList<ReportEntry>, Task>? RegenerateAllRequested;
+
     public ReportsView()
     {
         InitializeComponent();
@@ -89,9 +92,7 @@ public partial class ReportsView : UserControl
         _settingSource = false;
 
         NewReportButton.IsEnabled = _project != null;
-        ReportCountText.Text = _reports.Count == 0
-            ? "Ni poročil"
-            : MainWindow.Plural(_reports.Count, "poročilo", "poročili", "poročila", "poročil");
+        UpdateCounts();
 
         var pick = selectFolder != null
             ? _reports.FirstOrDefault(r => string.Equals(r.Folder, selectFolder, StringComparison.OrdinalIgnoreCase))
@@ -112,6 +113,45 @@ public partial class ReportsView : UserControl
                       : "Na levi izberite poročilo; prikaže se njegov PDF.");
     }
 
+    /// <summary>The count line and the regenerate button, which turns amber and says how
+    /// many PDFs need making when any are missing or out of date.</summary>
+    private void UpdateCounts()
+    {
+        var needing = _reports.Count(r => r.NeedsPdf);
+        ReportCountText.Text = _reports.Count == 0
+            ? "Ni poročil"
+            : MainWindow.Plural(_reports.Count, "poročilo", "poročili", "poročila", "poročil") +
+              (needing > 0 ? $" · {needing} brez ažurnega PDF-ja" : "");
+        RegenerateButton.IsEnabled = _reports.Count > 0;
+        RegenerateButton.SetResourceReference(StyleProperty, needing > 0 ? "WarningButton" : "SecondaryButton");
+        RegenerateText.Text = needing > 0 ? $"Osveži PDF-je ({needing})" : "Osveži vse PDF-je";
+        RegenerateButton.ToolTip = needing > 0
+            ? "Ustvari PDF za poročila, ki ga nimajo ali je starejši od dokumenta"
+            : "Vsi PDF-ji so ažurni";
+    }
+
+    /// <summary>Re-reads the reports' files (after editing in Word, for instance) without
+    /// reloading the PDF on screen unless it changed.</summary>
+    public async Task RecheckAsync()
+    {
+        if (_project == null || _busy) return;
+        var fresh = await Task.Run(() => ReportIndex.Load(Path.Combine(_cfg.DestinationRoot, _project)));
+        var previous = _current;
+        _settingSource = true;
+        _reports = fresh;
+        ReportList.ItemsSource = _reports;
+        var again = previous == null
+            ? null
+            : _reports.FirstOrDefault(r => string.Equals(r.Folder, previous.Folder, StringComparison.OrdinalIgnoreCase));
+        ReportList.SelectedItem = again;
+        _settingSource = false;
+        UpdateCounts();
+        if (again == null) return;
+        _current = again;
+        UpdateHeader(again);
+        if (again.PdfModified != previous!.PdfModified) await ShowPdfAsync(again);
+    }
+
     private async void OnReportSelected(object sender, SelectionChangedEventArgs e)
     {
         if (_settingSource || ReportList.SelectedItem is not ReportEntry report) return;
@@ -121,14 +161,26 @@ public partial class ReportsView : UserControl
     private async Task ShowReportAsync(ReportEntry report)
     {
         _current = report;
+        UpdateHeader(report);
+        await ShowPdfAsync(report);
+    }
+
+    /// <summary>Title, and the PDF button: amber and asking when the PDF is out of date.</summary>
+    private void UpdateHeader(ReportEntry report)
+    {
         ReportTitle.Text = report.Number;
-        ReportSubtitle.Text = report.Summary;
+        ReportSubtitle.Text = report.IsPdfStale
+            ? report.Summary + " · PDF je starejši od dokumenta"
+            : report.Summary;
         ReportHeader.Visibility = Visibility.Visible;
         PdfButtonText.Text = report.HasPdf ? "Osveži PDF" : "Ustvari PDF";
-        PdfButton.ToolTip = report.HasPdf
-            ? "Znova ustvari PDF iz dokumenta Word"
-            : "Shrani poročilo kot PDF (prek Worda)";
-        await ShowPdfAsync(report);
+        PdfButton.SetResourceReference(StyleProperty,
+            report.IsPdfStale ? "WarningButton" : report.HasPdf ? "SecondaryButton" : "PrimaryButton");
+        PdfButton.ToolTip = report.IsPdfStale
+            ? "Dokument je bil spremenjen po tem PDF-ju – ustvarite ga znova"
+            : report.HasPdf
+                ? "Znova ustvari PDF iz dokumenta Word"
+                : "Shrani poročilo kot PDF (prek Worda)";
     }
 
     private async Task ShowPdfAsync(ReportEntry report)
@@ -276,7 +328,24 @@ public partial class ReportsView : UserControl
             ReportList.ItemsSource = _reports;
             ReportList.SelectedItem = updated;
             _settingSource = false;
+            UpdateCounts();
             await ShowReportAsync(updated);
+        }
+    }
+
+    private async void OnRegenerateAllClick(object sender, RoutedEventArgs e)
+    {
+        if (RegenerateAllRequested is not { } handler || _busy || _reports.Count == 0) return;
+        _busy = true;
+        RegenerateButton.IsEnabled = false;
+        try
+        {
+            await handler(_reports.ToList());
+        }
+        finally
+        {
+            _busy = false;
+            RegenerateButton.IsEnabled = _reports.Count > 0;
         }
     }
 

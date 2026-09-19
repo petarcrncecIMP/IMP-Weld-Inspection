@@ -503,6 +503,21 @@
         </Style.Triggers>
     </Style>
 
+    <!-- Amber: something is out of date and one click fixes it (a stale PDF). -->
+    <Style x:Key="WarningButton" TargetType="Button" BasedOn="{StaticResource ButtonBase}">
+        <Setter Property="Background" Value="{DynamicResource WarningBrush}" />
+        <Setter Property="Foreground" Value="#1C1A14" />
+        <Style.Triggers>
+            <MultiTrigger>
+                <MultiTrigger.Conditions>
+                    <Condition Property="IsMouseOver" Value="True" />
+                    <Condition Property="IsEnabled" Value="True" />
+                </MultiTrigger.Conditions>
+                <Setter Property="Opacity" Value="0.88" />
+            </MultiTrigger>
+        </Style.Triggers>
+    </Style>
+
     <!-- Plain single-line input for dialogs (the report number). -->
     <Style x:Key="FieldBox" TargetType="TextBox">
         <Setter Property="Height" Value="34" />

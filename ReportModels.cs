@@ -17,8 +17,17 @@ public sealed class ReportEntry
     public required string? PdfPath { get; init; }
     public required DateTime Created { get; init; }
     public required int Photos { get; init; }
+    public required DateTime DocumentModified { get; init; }
+    public required DateTime? PdfModified { get; init; }
 
     public bool HasPdf => PdfPath != null;
+
+    /// <summary>The document was changed in Word after its PDF was made, so the PDF no longer
+    /// shows what the report says. Two seconds of slack for file-system timestamps.</summary>
+    public bool IsPdfStale => PdfModified is { } pdf && DocumentModified > pdf.AddSeconds(2);
+
+    /// <summary>No PDF yet, or one that is out of date.</summary>
+    public bool NeedsPdf => PdfPath == null || IsPdfStale;
 
     public string Summary =>
         $"{UnitName} · {MainWindow.Plural(Photos, "fotografija", "fotografiji", "fotografije", "fotografij")} · {Created:dd.MM.yyyy}";
@@ -42,6 +51,7 @@ public sealed class ReportEntry
 
         var name = Path.GetFileName(folder);
         var m = NameRx.Match(name);
+        var pdf = files.FirstOrDefault(f => f.EndsWith(".pdf", StringComparison.OrdinalIgnoreCase));
         return new ReportEntry
         {
             Folder = folder,
@@ -49,8 +59,11 @@ public sealed class ReportEntry
             Number = m.Success ? m.Groups["number"].Value : name,
             UnitName = m.Success ? m.Groups["unit"].Value : "",
             DocumentPath = document,
-            PdfPath = files.FirstOrDefault(f => f.EndsWith(".pdf", StringComparison.OrdinalIgnoreCase)),
-            Created = File.GetLastWriteTime(document),
+            PdfPath = pdf,
+            // The folder's birth, not the document's last edit, so editing doesn't reorder the list.
+            Created = Directory.GetCreationTime(folder),
+            DocumentModified = File.GetLastWriteTime(document),
+            PdfModified = pdf == null ? null : File.GetLastWriteTime(pdf),
             Photos = files.Count(f => MediaFiles.IsImage(f)),
         };
     }
@@ -106,35 +119,62 @@ public static class WordExport
 {
     private const int WdExportFormatPdf = 17;
 
-    public static Task<string> ToPdfAsync(string documentPath) => RunWorker(() => ToPdf(documentPath));
+    public sealed record PdfResult(string Document, string? Pdf, string? Error);
 
-    private static string ToPdf(string documentPath)
+    public static async Task<string> ToPdfAsync(string documentPath)
     {
-        // Word wants a plain Windows path: given one with forward slashes it opens nothing
-        // and says nothing.
-        documentPath = Path.GetFullPath(documentPath);
+        var result = (await ToPdfManyAsync(new[] { documentPath }, null))[0];
+        return result.Pdf ?? throw new IOException(result.Error);
+    }
+
+    /// <summary>Saves each document as a PDF beside it, all through one Word, reporting the
+    /// index of the one being worked on. One failure doesn't stop the rest.</summary>
+    public static Task<List<PdfResult>> ToPdfManyAsync(IReadOnlyList<string> documentPaths, IProgress<int>? progress) =>
+        RunWorker(() => ExportAll(documentPaths, progress));
+
+    private static List<PdfResult> ExportAll(IReadOnlyList<string> documentPaths, IProgress<int>? progress)
+    {
         var type = Type.GetTypeFromProgID("Word.Application")
                    ?? throw new IOException("Microsoft Word ni nameščen, zato PDF-ja ni mogoče ustvariti.");
-        var pdfPath = Path.ChangeExtension(documentPath, ".pdf");
-
+        var results = new List<PdfResult>();
         object? word = null;
         object? documents = null;
-        object? document = null;
         try
         {
             word = Activator.CreateInstance(type) ?? throw new IOException("Worda ni mogoče zagnati.");
             Set(word, "Visible", false);
             Set(word, "DisplayAlerts", 0);
             documents = Get(word, "Documents");
-            document = OpenDocument(word, documents, documentPath);
-            Call(document, "ExportAsFixedFormat", pdfPath, WdExportFormatPdf);
-            return pdfPath;
+
+            for (var i = 0; i < documentPaths.Count; i++)
+            {
+                progress?.Report(i);
+                // Word wants a plain Windows path: given one with forward slashes it opens
+                // nothing and says nothing.
+                var documentPath = Path.GetFullPath(documentPaths[i]);
+                var pdfPath = Path.ChangeExtension(documentPath, ".pdf");
+                object? document = null;
+                try
+                {
+                    document = OpenDocument(word, documents, documentPath);
+                    Call(document, "ExportAsFixedFormat", pdfPath, WdExportFormatPdf);
+                    results.Add(new PdfResult(documentPaths[i], pdfPath, null));
+                }
+                catch (Exception ex)
+                {
+                    results.Add(new PdfResult(documentPaths[i], null, (ex.InnerException ?? ex).Message));
+                }
+                finally
+                {
+                    Try(() => Call(document, "Close", 0));
+                    Release(document);
+                }
+            }
+            return results;
         }
         finally
         {
-            Try(() => Call(document, "Close", 0));
             Try(() => Call(word, "Quit"));
-            Release(document);
             Release(documents);
             Release(word);
         }

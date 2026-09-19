@@ -52,6 +52,12 @@ public partial class MainWindow : Window
     {
         UpdateThemeGlyph();
         UpdateBanner();
+        // Back from Word (Uredi v Wordu): a report may have changed, so its PDF may be stale now.
+        Activated += async (_, _) =>
+        {
+            if (_reportsReady && ReportsTab.IsChecked == true && DialogOverlay.Visibility != Visibility.Visible)
+                await ReportsPage.RecheckAsync();
+        };
         _watcher = new DriveWatcher(TimeSpan.FromSeconds(_cfg.PollSeconds));
         _watcher.DriveArrived += OnDriveArrived;
 
@@ -466,6 +472,52 @@ public partial class MainWindow : Window
         await ReportsPage.RefreshAsync();
     }
 
+    /// <summary>Makes the project's PDFs again: those missing or older than their document,
+    /// or, when all are current and the user asks for it, every one. One Word does them all.</summary>
+    private async Task OnRegenerateAllAsync(IReadOnlyList<ReportEntry> reports)
+    {
+        var targets = reports.Where(r => r.NeedsPdf).ToList();
+        if (targets.Count == 0)
+        {
+            var again = await ShowDialogAsync("PDF-JI SO AŽURNI", "Icon.CheckCircle", false, 460,
+                BodyText($"Vsi PDF-ji tega projekta so novejši od svojih dokumentov ({reports.Count}). Jih vseeno ustvarim znova?"),
+                ("cancel", "Prekliči", "SecondaryButton"), ("all", "Ustvari vse znova", "PrimaryButton"));
+            if (again != "all") return;
+            targets = reports.ToList();
+        }
+
+        // Word overwrites the PDFs, so the viewer lets go of the one it shows.
+        ReportsPage.ReleasePdf();
+        var status = BodyText("");
+        _ = ShowDialogAsync("USTVARJAM PDF-JE", "Icon.FileText", false, 460, status);
+        var progress = new Progress<int>(i =>
+            status.Text = $"{i + 1} / {targets.Count} · {targets[i].Number} ({targets[i].UnitName}) …");
+        List<WordExport.PdfResult> results;
+        try
+        {
+            results = await WordExport.ToPdfManyAsync(targets.Select(r => r.DocumentPath).ToList(), progress);
+        }
+        catch (Exception ex)
+        {
+            CloseDialog(null);
+            await ShowDialogAsync("PDF-JEV NI MOGOČE USTVARITI", "Icon.XCircle", true, 460, BodyText(ex.Message),
+                                  ("ok", "V redu", "SecondaryButton"));
+            await ReportsPage.RefreshAsync();
+            return;
+        }
+        CloseDialog(null);
+        await ReportsPage.RefreshAsync();
+
+        var failed = results.Where(r => r.Error != null).ToList();
+        var done = new StackPanel();
+        done.Children.Add(BodyText($"Ustvarjenih PDF-jev: {results.Count - failed.Count} od {results.Count}."));
+        foreach (var f in failed)
+            done.Children.Add(Line("Icon.XCircle", "DangerBrush", $"{Path.GetFileName(f.Document)}: {f.Error}"));
+        await ShowDialogAsync(failed.Count == 0 ? "PDF-JI USTVARJENI" : "NEKATERI PDF-JI NISO USPELI",
+                              failed.Count == 0 ? "Icon.CheckCircle" : "Icon.WarningCircle", failed.Count > 0, 520, done,
+                              ("ok", "V redu", "SecondaryButton"));
+    }
+
     private TextBlock Muted(string text, string fontSizeKey)
     {
         var block = new TextBlock { Text = text, TextWrapping = TextWrapping.Wrap };
@@ -518,6 +570,7 @@ public partial class MainWindow : Window
                 ReportsPage.Initialize(_cfg, _settings);
                 ReportsPage.NewReportRequested += OnNewReportAsync;
                 ReportsPage.DeleteRequested += OnDeleteReportAsync;
+                ReportsPage.RegenerateAllRequested += OnRegenerateAllAsync;
                 _reportsReady = true;
             }
             await ReportsPage.RefreshAsync();

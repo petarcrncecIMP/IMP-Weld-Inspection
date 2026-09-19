@@ -131,6 +131,21 @@ public static class Updater
         if (exe != null) TryDelete(exe + ".old");
     }
 
+    /// <summary>Right after an update the previous copy is often still closing and holds its
+    /// file, so one attempt at start leaves the .old lying beside the exe. Keep trying in the
+    /// background for about half a minute.</summary>
+    public static async Task DeleteLeftoverSoonAsync(string? exe = null)
+    {
+        exe ??= Environment.ProcessPath;
+        if (exe == null) return;
+        for (var attempt = 0; attempt < 15 && File.Exists(exe + ".old"); attempt++)
+        {
+            TryDelete(exe + ".old");
+            if (!File.Exists(exe + ".old")) return;
+            await Task.Delay(2000);
+        }
+    }
+
     private static HttpClient NewClient(TimeSpan timeout)
     {
         var http = new HttpClient { Timeout = timeout };
