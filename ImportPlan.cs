@@ -66,7 +66,8 @@ public sealed class NoteList : Collection<string>
 
 /// <summary>
 /// Builds the preview. Read-only: nothing is created, renamed or hashed here. Status
-/// comes from the manifest's file names; exact source hashes are checked at import.
+/// comes from the photos already in the destination folder, counted by name; exact
+/// duplicates are found by hash at import.
 /// </summary>
 public static class ImportPlanner
 {
@@ -77,6 +78,7 @@ public static class ImportPlanner
         var tree = new DestinationTree(cfg.DestinationRoot);
         var plans = new List<WeldPlan>();
 
+        await resolver.PrefetchAsync(scan.Welds.Select(w => w.BomCode), ct);
         foreach (var bomGroup in scan.Welds.GroupBy(w => w.BomCode).OrderBy(g => g.Key))
         {
             var res = await resolver.ResolveAsync(bomGroup.Key, ct);
@@ -86,7 +88,7 @@ public static class ImportPlanner
             if (res.Info is { } info)
             {
                 existing = tree.FindIsoFolder(info, warnings);
-                destination = tree.PlannedIsoPath(info);
+                destination = tree.ExpectedIsoPath(info, warnings);
             }
             else
             {
@@ -95,26 +97,12 @@ public static class ImportPlanner
                 existing = Directory.Exists(destination) ? destination : null;
             }
 
-            Manifest? manifest = null;
-            if (existing != null)
-            {
-                try
-                {
-                    manifest = Manifest.Load(existing);
-                    manifest.DropMissing(); // preview only: not saved
-                }
-                catch (Exception ex)
-                {
-                    warnings.Add($"{Path.Combine(existing, Manifest.FileName)} ni berljiv: {ex.Message}");
-                }
-            }
-
             // One isometrija folder holds each weld label once, but grouping keeps two
             // folders that differ only in the NNN prefix together as one weld.
             foreach (var weldGroup in bomGroup.GroupBy(w => w.WeldLabel, StringComparer.Ordinal))
             {
                 var files = weldGroup.SelectMany(w => w.Files).ToList();
-                var already = Numbering.CountImported(manifest, WeldPlan.PrefixFor(bomGroup.Key, weldGroup.Key));
+                var already = existing == null ? 0 : Numbering.CountImported(existing, WeldPlan.PrefixFor(bomGroup.Key, weldGroup.Key));
                 var plan = new WeldPlan
                 {
                     BomCode = bomGroup.Key,
@@ -135,35 +123,29 @@ public static class ImportPlanner
             }
         }
 
+        // Where the data came from goes first: it explains everything below it.
+        var all = new NoteList();
+        foreach (var note in resolver.Notes) all.Add(note);
+        foreach (var w in warnings) all.Add(w);
         return new ImportPlan
         {
             Scan = scan,
             Welds = plans.OrderBy(p => p.BomCode).ThenBy(p => p.SortKey, StringComparer.Ordinal).ToList(),
-            Warnings = warnings.ToList(),
+            Warnings = all.ToList(),
         };
     }
-
 }
 
-/// <summary>The -{n} in {BomCode}-{WeldLabel}-{n}.{ext}.</summary>
+/// <summary>The -{n} in {BomCode}-{WeldLabel}-{n}.{ext}, read from the files on disk.</summary>
 public static class Numbering
 {
-    /// <summary>Highest n already used, on disk (including leftover .part files) or
-    /// in the manifest. The next photo gets one more, so nothing is overwritten and
-    /// numbering never restarts.</summary>
-    public static int Highest(string folder, Manifest? manifest, string prefix)
+    /// <summary>Highest n already used in the folder, leftover .part files included. The
+    /// next photo gets one more, so nothing is overwritten.</summary>
+    public static int Highest(string folder, string prefix)
     {
         var rx = new Regex("^" + Regex.Escape(prefix) + @"-(\d+)\.", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
-        var names = manifest?.Files.Keys.ToList() ?? new List<string>();
-        try
-        {
-            names.AddRange(Directory.EnumerateFiles(folder).Select(Path.GetFileName)!);
-        }
-        catch (DirectoryNotFoundException)
-        {
-        }
         var max = 0;
-        foreach (var name in names)
+        foreach (var name in Names(folder))
         {
             var m = rx.Match(name);
             if (m.Success && int.TryParse(m.Groups[1].Value, out var n) && n > max) max = n;
@@ -171,10 +153,24 @@ public static class Numbering
         return max;
     }
 
-    public static int CountImported(Manifest? manifest, string prefix)
+    /// <summary>The finished photos of one weld in the folder (no .part files).</summary>
+    public static List<string> WeldFiles(string folder, string prefix)
     {
-        if (manifest == null) return 0;
         var rx = new Regex("^" + Regex.Escape(prefix) + @"-\d+\.[^.]+$", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
-        return manifest.Files.Keys.Count(k => rx.IsMatch(k));
+        return Names(folder).Where(n => rx.IsMatch(n)).Select(n => Path.Combine(folder, n)).ToList();
+    }
+
+    public static int CountImported(string folder, string prefix) => WeldFiles(folder, prefix).Count;
+
+    private static IEnumerable<string> Names(string folder)
+    {
+        try
+        {
+            return Directory.EnumerateFiles(folder).Select(Path.GetFileName).OfType<string>().ToList();
+        }
+        catch (Exception ex) when (ex is DirectoryNotFoundException or IOException or UnauthorizedAccessException)
+        {
+            return Array.Empty<string>();
+        }
     }
 }

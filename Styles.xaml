@@ -502,4 +502,10 @@
             </MultiTrigger>
         </Style.Triggers>
     </Style>
+
+    <!-- CommonData account in the header: the same pill as the update offer, in plain text colour. -->
+    <Style x:Key="AccountButton" TargetType="Button" BasedOn="{StaticResource UpdateButton}">
+        <Setter Property="Foreground" Value="{DynamicResource TextBrush}" />
+        <Setter Property="FontWeight" Value="Normal" />
+    </Style>
 </ResourceDictionary>

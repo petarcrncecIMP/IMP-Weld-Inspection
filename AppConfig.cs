@@ -2,8 +2,8 @@ using System.Text.Json;
 
 namespace IMPWeldPhotos;
 
-/// <summary>Read from IMP-Weld-Inspection.config.json beside the exe. Every value has a
-/// default except the API, which stays off until someone fills it in.</summary>
+/// <summary>Read from IMP-Weld-Inspection.config.json beside the exe. Optional: every
+/// value has a default, the CommonData connection included.</summary>
 public sealed class AppConfig
 {
     public const string FileName = "IMP-Weld-Inspection.config.json";
@@ -37,6 +37,7 @@ public sealed class AppConfig
                 AllowTrailingCommas = true,
             }) ?? new AppConfig();
             cfg.Api ??= new ApiSettings();
+            cfg.Api.FillBlanks();
             if (cfg.PollSeconds < 1) cfg.PollSeconds = 1;
             return cfg;
         }
@@ -63,14 +64,33 @@ public sealed class AppConfig
     }
 }
 
+/// <summary>CommonData connection. The defaults are production CommonData with the app
+/// registration the AutoCAD tools use (Autodesk_ext\Plant3D\ApiConfig.vb), chosen by the
+/// user on 2026-09-19. The config file can override any value (a blank one keeps the
+/// default) or switch the database off with "Enabled": false.</summary>
 public sealed class ApiSettings
 {
-    public string BaseUrl { get; set; } = "";
-    public string TenantId { get; set; } = "";
-    public string ClientId { get; set; } = "";
-    public string Scope { get; set; } = "";
+    private const string DefaultBaseUrl = "https://impp-commondata.azurewebsites.net/api";
+    private const string DefaultTenantId = "5316bd8d-6644-41d8-9fa4-1451be73b785";
+    private const string DefaultClientId = "52757799-fad4-4ea7-96ac-3172691f1fbd";
+    private const string DefaultScope = "api://5de225d4-c2ef-44d6-ab7e-5b947f040b12/access_as_user";
+
+    public bool Enabled { get; set; } = true;
+    public string BaseUrl { get; set; } = DefaultBaseUrl;
+    public string TenantId { get; set; } = DefaultTenantId;
+    public string ClientId { get; set; } = DefaultClientId;
+    public string Scope { get; set; } = DefaultScope;
 
     public bool IsConfigured =>
-        !string.IsNullOrWhiteSpace(BaseUrl) && !string.IsNullOrWhiteSpace(TenantId) &&
+        Enabled && !string.IsNullOrWhiteSpace(BaseUrl) && !string.IsNullOrWhiteSpace(TenantId) &&
         !string.IsNullOrWhiteSpace(ClientId) && !string.IsNullOrWhiteSpace(Scope);
+
+    /// <summary>A config file written before the defaults existed has empty strings here.</summary>
+    public void FillBlanks()
+    {
+        if (string.IsNullOrWhiteSpace(BaseUrl)) BaseUrl = DefaultBaseUrl;
+        if (string.IsNullOrWhiteSpace(TenantId)) TenantId = DefaultTenantId;
+        if (string.IsNullOrWhiteSpace(ClientId)) ClientId = DefaultClientId;
+        if (string.IsNullOrWhiteSpace(Scope)) Scope = DefaultScope;
+    }
 }

@@ -1,8 +1,10 @@
 # IMP Weld Inspection
 
 Copies endoscope weld photos from an SD card into `U:\100_Identi\140_Zvari`, sorted
-by project, unit and isometrija, and stamps each photo with its own file name. The
-Pregled page browses the photos already on the share.
+by project, unit and isometrija, and names each photo after its weld. Photos are copied
+unstamped, as the endoscope took them. Project, unit and isometrija come from the
+CommonData database (sign-in shared with the AutoCAD tools), or from `titles.json` when
+offline. The Pregled page browses the photos already on the share.
 Details in [SPEC.md](SPEC.md); the look in [design/DESIGN.md](design/DESIGN.md).
 
 ## Download
@@ -16,7 +18,7 @@ When a newer version is released, the app shows **Posodobi** in its header; one 
 downloads it, swaps the exe and restarts.
 
 `IMP-Weld-Inspection.config.json` is optional. Without it the app uses the default `U:`
-paths and skips the CommonData API fallback. To change either, download
+paths and production CommonData. To change either, download
 [the config](https://github.com/petarcrncecIMP/IMP-Weld-Inspection/releases/latest/download/IMP-Weld-Inspection.config.json)
 and put it beside the exe.
 

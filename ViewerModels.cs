@@ -215,7 +215,8 @@ public static class ImageLoader
     {
         try
         {
-            return Decode(File.ReadAllBytes(path), decodeWidth);
+            var bytes = File.ReadAllBytes(path);
+            return Decode(bytes, decodeWidth, Origin(bytes));
         }
         catch
         {
@@ -229,6 +230,7 @@ public static class ImageLoader
         {
             var bytes = File.ReadAllBytes(path);
             int width = 0, height = 0;
+            var origin = SKEncodedOrigin.TopLeft;
             using (var data = SKData.CreateCopy(bytes))
             using (var codec = SKCodec.Create(data))
             {
@@ -236,8 +238,12 @@ public static class ImageLoader
                 {
                     width = codec.Info.Width;
                     height = codec.Info.Height;
+                    origin = codec.EncodedOrigin;
                 }
             }
+            var storedWidth = width;
+            // Photos keep the camera's orientation tag; report the size as the photo is shown.
+            if (IsQuarterTurn(origin)) (width, height) = (height, width);
             DateTime? taken = null;
             try
             {
@@ -247,7 +253,7 @@ public static class ImageLoader
             {
             }
             // Large enough for a full-screen preview, small enough not to hold 50 MP in memory.
-            var image = Decode(bytes, width > 0 ? Math.Min(width, 2400) : 2400);
+            var image = Decode(bytes, storedWidth > 0 ? Math.Min(storedWidth, 2400) : 2400, origin);
             return new Preview(image, width, height, taken);
         }
         catch
@@ -256,7 +262,9 @@ public static class ImageLoader
         }
     }
 
-    private static BitmapSource Decode(byte[] bytes, int decodeWidth)
+    /// <summary>Decodes at most decodeWidth pixels wide (of the stored image) and turns the
+    /// result upright per the EXIF orientation, which WPF itself ignores.</summary>
+    private static BitmapSource Decode(byte[] bytes, int decodeWidth, SKEncodedOrigin origin)
     {
         using var stream = new MemoryStream(bytes);
         var bitmap = new BitmapImage();
@@ -267,6 +275,41 @@ public static class ImageLoader
         bitmap.StreamSource = stream;
         bitmap.EndInit();
         bitmap.Freeze();
-        return bitmap;
+        if (origin == SKEncodedOrigin.TopLeft) return bitmap;
+
+        var upright = new TransformedBitmap(bitmap, OrientationTransform(origin));
+        upright.Freeze();
+        return upright;
     }
+
+    private static SKEncodedOrigin Origin(byte[] bytes)
+    {
+        try
+        {
+            using var data = SKData.CreateCopy(bytes);
+            using var codec = SKCodec.Create(data);
+            return codec?.EncodedOrigin ?? SKEncodedOrigin.TopLeft;
+        }
+        catch
+        {
+            return SKEncodedOrigin.TopLeft;
+        }
+    }
+
+    private static bool IsQuarterTurn(SKEncodedOrigin origin) =>
+        origin is SKEncodedOrigin.LeftTop or SKEncodedOrigin.RightTop
+                  or SKEncodedOrigin.RightBottom or SKEncodedOrigin.LeftBottom;
+
+    /// <summary>Stored pixels to upright ones, for each EXIF orientation (1 needs none).</summary>
+    private static Transform OrientationTransform(SKEncodedOrigin origin) => origin switch
+    {
+        SKEncodedOrigin.TopRight => new ScaleTransform(-1, 1),
+        SKEncodedOrigin.BottomRight => new RotateTransform(180),
+        SKEncodedOrigin.BottomLeft => new ScaleTransform(1, -1),
+        SKEncodedOrigin.LeftTop => new TransformGroup { Children = { new RotateTransform(90), new ScaleTransform(-1, 1) } },
+        SKEncodedOrigin.RightTop => new RotateTransform(90),
+        SKEncodedOrigin.RightBottom => new TransformGroup { Children = { new RotateTransform(90), new ScaleTransform(1, -1) } },
+        SKEncodedOrigin.LeftBottom => new RotateTransform(270),
+        _ => Transform.Identity,
+    };
 }

@@ -1,17 +1,16 @@
 {
-  // Where photos go, and the isometrija tree (with titles.json) they are sorted by.
+  // Optional. Everything here has a built-in default; keep only what you change.
+
+  // Where photos go, and the isometrija tree whose titles.json is the offline fallback.
   "DestinationRoot": "U:\\100_Identi\\140_Zvari",
   "IsoRoot": "U:\\100_Identi\\130_Izometrije",
 
-  // CommonData API fallback for BOM codes not in titles.json yet. Leave blank to
-  // skip it: those photos then go to _Nerazvrsceno and move once titles.json knows
-  // them. Get the values from the CommonData project owner. The user needs the
-  // Fab.Read / Fab.Odata roles.
+  // CommonData: project, unit and isometrija names come from the database for the
+  // signed-in user (roles Fab.Odata / Fab.Read). The built-in connection is production
+  // CommonData with the AutoCAD tools' app registration; set BaseUrl, TenantId, ClientId
+  // or Scope here to use another one. "Enabled": false uses titles.json only.
   "Api": {
-    "BaseUrl": "",
-    "TenantId": "",
-    "ClientId": "",
-    "Scope": ""
+    "Enabled": true
   },
 
   // Fallback drive poll, in seconds, beside the WMI volume-arrival event.

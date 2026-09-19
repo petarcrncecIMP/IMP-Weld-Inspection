@@ -130,7 +130,21 @@ must be copied rather than reinvented:
 
 The card only has the BomCode. Resolve each BomCode in this order:
 
-1. **`U:\100_Identi\130_Izometrije\titles.json`** (offline, no sign-in, fast).
+1. **CommonData database** (decided 2026-09-19), for the signed-in user:
+   OData `GET {BaseUrl}/odata/FabBomIsoView?$filter=BomCode eq a or BomCode eq b …&$select=BomCode,BomName,ProjectCode,ProjectName,UnitCode,UnitName`,
+   20 codes per request. Built-in connection: production CommonData with the
+   AutoCAD tools' app registration (`Autodesk_ext\Plant3D\ApiConfig.vb`); the
+   config file can override it or switch it off. Sign-in is the Entra public
+   client with the same token cache file as `IMPPromont.CommonData.Client`, so
+   the AutoCAD tools' sign-in is reused silently at start; otherwise the header's
+   **Prijava** button opens the browser. Queries never pop up a sign-in. The user
+   needs the `Fab.Odata` role. A BomCode that comes back under more than one unit
+   counts as unresolved. Only database data may rename existing folders.
+2. **`U:\100_Identi\130_Izometrije\titles.json`**, the offline fallback: when
+   nobody is signed in, the database can't be reached, or it doesn't know the
+   BOM. Folders are found by code as always, but titles.json data never renames
+   an existing folder, so the two sources can't rename folders back and forth.
+   The preview says when its data came from titles.json.
    It maps BomCode → drawing path relative to that root:
    ```json
    { "Version": 1, "Root": "D:/skupno/100_Identi/130_Izometrije",
@@ -144,15 +158,6 @@ The card only has the BomCode. Resolve each BomCode in this order:
      `U:\100_Identi\130_Izometrije`.
    - It appears to be produced by the indexer in `Autodesk_ext\IMPIsoIndexer`.
      Confirm, and re-read it on every import because it is regenerated.
-2. **CommonData API fallback**, for a BomCode not in `titles.json` yet:
-   OData `GET {BaseUrl}/odata/FabBomIsoView?$filter=BomCode eq {code}&$select=BomCode,BomName,ProjectCode,ProjectName,UnitCode,UnitName`.
-   Authenticate the same way the AutoCAD tools do: the
-   `IMPPromont.CommonData.Client` package (`ServiceClient(baseUrl, tenantId,
-   clientId, scopes)`, Entra public client, interactive sign-in, token cache).
-   See `Autodesk_ext\SharedLogic\CommonDataApi.vb`. The user needs the
-   `Fab.Read` / `Fab.Odata` roles. Ask the project owner for the base URL,
-   tenant, client id and scope; do not hard-code a guess. A BomCode that comes
-   back under more than one unit counts as unresolved.
 3. **Unresolved:** do not guess. Copy into
    `U:\100_Identi\140_Zvari\_Nerazvrsceno\{BomCode}\` with
    the same file naming, and list it in the summary. Running the import again
@@ -172,26 +177,31 @@ Per weld folder on the card:
     same weld never overwrites and never restarts at 1.
 - **Order photos** by capture time (EXIF `DateTimeOriginal` if present, else the
   file's last write time), then by original name, so `-1` is the first shot.
-- **Skip exact duplicates:** don't import a photo again if its source file was
-  already imported for that weld, which happens when the same card goes in
-  twice. The stamped copy at the destination has different bytes than the
-  source (see "Stamping"), so comparing hashes against it doesn't work. Instead,
-  keep a hidden manifest per isometrija folder, `.imported.json`, mapping each
-  destination file name to the **SHA-256 of its source file**, and check new
-  sources against that.
-- **Write safely:** read and hash the source, produce the output (stamped image,
-  or a straight copy for video) into `{target}.part`, check the `.part` file is
-  complete (it decodes as an image, or its size matches the source for video),
-  then rename it to the final name and record it in the manifest. A failure
-  leaves no half-written photo and no manifest entry behind.
+- **Unstamped** (decided 2026-09-19): photos and videos are copied byte for
+  byte, so the files on `U:` are the endoscope's originals with all their
+  metadata. The name is stamped only when a report is made (see "Stamping").
+- **Skip exact duplicates:** don't import a photo again if it is already at the
+  destination, which happens when the same card goes in twice. Because the copy
+  is identical, compare the source's **SHA-256** with the photos of that weld in
+  the isometrija folder. A photo someone deleted there is simply imported again.
+  (Up to v1.0.6 photos were stamped and a hidden `.imported.json` per folder
+  recorded source hashes; that file is no longer written or read.)
+- **Write safely:** hash the source, copy it into `{target}.part`, read the
+  `.part` back and check its SHA-256 matches, then rename it to the final name.
+  On a network share antivirus or indexing briefly holds fresh files open, so the
+  rename retries for about four seconds before failing. A failure leaves no
+  half-written photo behind and names the step that failed.
 - Only take image and video files the endoscope produces (at least `.jpg`,
   `.jpeg`, `.png`, `.bmp`, `.mp4`, `.avi`). Skip `Thumbs.db`, `desktop.ini`, and
   hidden or system files.
 
-### Stamping
+### Stamping (for reports)
 
-Every **image** gets its own name stamped on it, so a photo that is later
-emailed, printed or pasted into a report still says which weld it shows.
+Photos on `U:` are unstamped. When a report is made (a Word document with the
+stamped photos and some details; its design is still to be specified), every
+**image** in it gets its own name stamped on it, so a printed or forwarded
+report still says which weld each photo shows. `PhotoStamper` implements the
+rules below and is kept for that.
 
 - **Text:** the final file name without extension, e.g. `2000487-W2a-1`.
 - **Position:** horizontally centered. Vertically near the bottom: put the
@@ -213,8 +223,6 @@ emailed, printed or pasted into a report still says which weld it shows.
 - **Library:** SkiaSharp is recommended for antialiased text, blurred shadows
   and JPEG encoding. `System.Drawing` also works on Windows if simpler. Render
   one test image per new camera/endoscope model and eyeball it before rolling out.
-- The original, unstamped photo is not kept at the destination. It stays on the
-  card until the user clears it (below).
 - **Never delete anything from the card automatically.** After a fully verified
   import, offer an explicit "Clear imported photos from card" action. It deletes
   only the files that were copied and verified, and leaves the folder tree in
@@ -249,10 +257,14 @@ be started by hand with a "Scan again" button.
    date and size. Actions: open in the default viewer, show in folder, copy the
    file to the clipboard. Double-clicking a row of the import table opens that
    isometrija here. Images are read into memory before decoding, so the viewer
-   never keeps a file on the share open.
+   never keeps a file on the share open. Photos are shown upright per their EXIF
+   orientation, which the originals keep.
+6. **CommonData account** in the header: the signed-in user's name, or **Prijava**
+   to sign in through the browser. After signing in the preview is rebuilt from
+   the database.
 
 Write a log per import (CSV: time, source path, destination path, source
-SHA-256, stamped yes/no, result) to `%LOCALAPPDATA%\IMP\IMPWeldPhotos\logs\`.
+SHA-256, result) to `%LOCALAPPDATA%\IMP\IMPWeldPhotos\logs\`.
 
 ---
 
@@ -267,8 +279,8 @@ SHA-256, stamped yes/no, result) to `%LOCALAPPDATA%\IMP\IMPWeldPhotos\logs\`.
   same rules as folders.
 - Very large cards → keep the scan to the root and its BOM folders (§2). Hash sources during
   import, not during the preview scan. The preview marks a weld
-  "already imported" from the manifest's file names and counts, and exact
-  source hashes are checked at import.
+  "already imported" from the count of that weld's photos in the destination
+  folder; exact hashes are compared at import.
 
 ---
 

@@ -15,27 +15,44 @@ public sealed class BomIsoRow
     public string? UnitName { get; set; }
 }
 
+/// <summary>A query needed a sign-in the user hasn't done (or that has expired).</summary>
+public sealed class NotSignedInException : Exception
+{
+    public NotSignedInException() : base("niste prijavljeni v CommonData")
+    {
+    }
+}
+
 /// <summary>
-/// CommonData OData access, signed in the way IMPPromont.CommonData.Client's
-/// ServiceClient(baseUrl, tenantId, clientId, scopes) does it: MSAL public client,
-/// http://localhost redirect, silent first and interactive when needed, and the same
-/// token cache file, so a sign-in from another IMP tool is reused here.
+/// CommonData OData access for the person running the app, signed in the way
+/// IMPPromont.CommonData.Client's ServiceClient does it: MSAL public client, http://localhost
+/// redirect, and the same token cache file, so the AutoCAD tools' sign-in is reused here.
 ///
-/// Not the package itself: its HttpClient and request builder are internal, and no
-/// version reachable from here has a call for FabBomIsoView.
+/// Sign-in is explicit. SignInSilentAsync runs at start; SignInInteractiveAsync runs from the
+/// header button. Queries never open a browser: without a sign-in they throw
+/// NotSignedInException and the resolver falls back to titles.json.
+///
+/// Not the package itself: its HttpClient and request builder are internal, and no version
+/// reachable from here has a call for FabBomIsoView.
 /// </summary>
 public sealed class CommonDataApi : IDisposable
 {
+    private const int CodesPerQuery = 20;
     private static readonly JsonSerializerOptions Json = new() { PropertyNameCaseInsensitive = true };
 
     private readonly HttpClient _http;
     private readonly IPublicClientApplication _pca;
     private readonly string[] _scopes;
     private readonly SemaphoreSlim _tokenLock = new(1, 1);
+    private IAccount? _account;
 
-    /// <summary>Set once the API can't be used for the rest of the session (sign-in
-    /// cancelled, no permission), so the user isn't asked again for every BOM.</summary>
+    /// <summary>The signed-in account (e.g. name@imp-pro-mont.si), or null.</summary>
+    public string? UserName { get; private set; }
+
+    /// <summary>Set when the API refused this user (no Fab roles); cleared by a new sign-in.</summary>
     public string? DisabledReason { get; private set; }
+
+    public bool IsSignedIn => UserName != null && DisabledReason == null;
 
     public CommonDataApi(ApiSettings settings)
     {
@@ -49,52 +66,86 @@ public sealed class CommonDataApi : IDisposable
         AttachPersistentTokenCache(_pca.UserTokenCache);
     }
 
-    public async Task<List<BomIsoRow>> GetBomIsoRowsAsync(int bomCode, CancellationToken ct)
+    /// <summary>Signs in from the token cache without any window. False when an interactive
+    /// sign-in is needed or the service can't be reached.</summary>
+    public async Task<bool> SignInSilentAsync(CancellationToken ct)
     {
-        // Leading slash, as FabClient does: it resolves against the host, so a
-        // BaseUrl ending in /api still reaches /odata.
-        var url = $"/odata/FabBomIsoView?$filter=BomCode eq {bomCode}" +
-                  "&$select=BomCode,BomName,ProjectCode,ProjectName,UnitCode,UnitName";
-        using var request = new HttpRequestMessage(HttpMethod.Get, url);
-        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", await GetTokenAsync(ct));
-        using var response = await _http.SendAsync(request, ct);
-        if (response.StatusCode is HttpStatusCode.Unauthorized or HttpStatusCode.Forbidden)
+        try
         {
-            DisabledReason = "za CommonData API nimate pravic (potrebni vlogi Fab.Read in Fab.Odata)";
-            throw new HttpRequestException(DisabledReason);
+            await TokenAsync(interactive: false, ct);
+            return true;
         }
-        response.EnsureSuccessStatusCode();
-
-        using var doc = JsonDocument.Parse(await response.Content.ReadAsStringAsync(ct));
-        var items = doc.RootElement.TryGetProperty("value", out var value) ? value : doc.RootElement;
-        return items.Deserialize<List<BomIsoRow>>(Json) ?? new List<BomIsoRow>();
+        catch (Exception) when (!ct.IsCancellationRequested)
+        {
+            return false;
+        }
     }
 
-    private async Task<string> GetTokenAsync(CancellationToken ct)
+    /// <summary>Opens the system browser to sign in (or pick another account).</summary>
+    public async Task SignInInteractiveAsync(CancellationToken ct)
+    {
+        await TokenAsync(interactive: true, ct);
+        DisabledReason = null;
+    }
+
+    /// <summary>FabBomIsoView rows for the given BOM codes, CodesPerQuery codes per request.</summary>
+    public async Task<List<BomIsoRow>> GetBomIsoRowsAsync(IReadOnlyCollection<int> bomCodes, CancellationToken ct)
+    {
+        var rows = new List<BomIsoRow>();
+        foreach (var chunk in bomCodes.Distinct().Chunk(CodesPerQuery))
+        {
+            var filter = string.Join(" or ", chunk.Select(c => $"BomCode eq {c}"));
+            // Leading slash, as FabClient does: it resolves against the host, so a BaseUrl
+            // ending in /api still reaches /odata.
+            var url = $"/odata/FabBomIsoView?$filter={Uri.EscapeDataString(filter)}" +
+                      "&$select=BomCode,BomName,ProjectCode,ProjectName,UnitCode,UnitName";
+            using var request = new HttpRequestMessage(HttpMethod.Get, url);
+            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", await TokenAsync(interactive: false, ct));
+            using var response = await _http.SendAsync(request, ct);
+            if (response.StatusCode is HttpStatusCode.Unauthorized or HttpStatusCode.Forbidden)
+            {
+                DisabledReason = "za CommonData nimate pravic (potrebni vlogi Fab.Read in Fab.Odata)";
+                throw new HttpRequestException(DisabledReason);
+            }
+            response.EnsureSuccessStatusCode();
+
+            using var doc = JsonDocument.Parse(await response.Content.ReadAsStringAsync(ct));
+            var items = doc.RootElement.TryGetProperty("value", out var value) ? value : doc.RootElement;
+            rows.AddRange(items.Deserialize<List<BomIsoRow>>(Json) ?? new List<BomIsoRow>());
+        }
+        return rows;
+    }
+
+    private async Task<string> TokenAsync(bool interactive, CancellationToken ct)
     {
         await _tokenLock.WaitAsync(ct);
         try
         {
-            var accounts = await _pca.GetAccountsAsync();
-            try
+            AuthenticationResult result;
+            if (interactive)
             {
-                return (await _pca.AcquireTokenSilent(_scopes, accounts.FirstOrDefault()).ExecuteAsync(ct)).AccessToken;
+                result = await _pca.AcquireTokenInteractive(_scopes)
+                    .WithPrompt(Prompt.SelectAccount)
+                    .WithUseEmbeddedWebView(false)
+                    .ExecuteAsync(ct);
             }
-            catch (MsalUiRequiredException)
+            else
             {
+                var account = _account ?? (await _pca.GetAccountsAsync()).FirstOrDefault();
                 try
                 {
-                    return (await _pca.AcquireTokenInteractive(_scopes)
-                        .WithPrompt(Prompt.SelectAccount)
-                        .WithUseEmbeddedWebView(false)
-                        .ExecuteAsync(ct)).AccessToken;
+                    result = await _pca.AcquireTokenSilent(_scopes, account).ExecuteAsync(ct);
                 }
-                catch (MsalClientException ex) when (ex.ErrorCode == MsalError.AuthenticationCanceledError)
+                catch (MsalUiRequiredException)
                 {
-                    DisabledReason = "prijava v CommonData je bila preklicana";
-                    throw;
+                    _account = null;
+                    UserName = null;
+                    throw new NotSignedInException();
                 }
             }
+            _account = result.Account;
+            UserName = result.Account?.Username;
+            return result.AccessToken;
         }
         finally
         {
@@ -129,10 +180,10 @@ public sealed class CommonDataApi : IDisposable
     {
         var inner = ex;
         while (inner.InnerException != null) inner = inner.InnerException;
-        if (inner is TaskCanceledException) return "API se ni odzval v 30 sekundah";
+        if (inner is TaskCanceledException) return "CommonData se ni odzval v 30 sekundah";
         var m = inner.Message ?? "";
-        if (m.Contains("refused", StringComparison.OrdinalIgnoreCase)) return "API ne teče (povezava zavrnjena)";
-        if (m.Contains("No such host", StringComparison.OrdinalIgnoreCase)) return "imena strežnika API ni mogoče razrešiti";
+        if (m.Contains("refused", StringComparison.OrdinalIgnoreCase)) return "CommonData ne teče (povezava zavrnjena)";
+        if (m.Contains("No such host", StringComparison.OrdinalIgnoreCase)) return "imena strežnika CommonData ni mogoče razrešiti";
         return m;
     }
 

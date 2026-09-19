@@ -79,6 +79,14 @@
                 </StackPanel>
             </StackPanel>
             <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,0,12,0">
+                <!-- CommonData sign-in: who is signed in, or "Prijava". -->
+                <Button x:Name="AccountButton" Style="{StaticResource AccountButton}" Margin="0,0,12,0" Visibility="Collapsed"
+                        Click="OnAccountClick">
+                    <StackPanel Orientation="Horizontal">
+                        <local:Glyph x:Name="AccountGlyph" Data="{StaticResource Icon.User}" Margin="0,0,8,0" />
+                        <TextBlock x:Name="AccountText" Text="Prijava" />
+                    </StackPanel>
+                </Button>
                 <TextBlock x:Name="VersionText" Foreground="#B3FFFFFF" FontSize="12" VerticalAlignment="Center" Margin="0,0,12,0" />
                 <!-- Shown only when GitHub has a newer release. -->
                 <Button x:Name="UpdateButton" Style="{StaticResource UpdateButton}" Margin="0,0,8,0" Visibility="Collapsed"

@@ -61,6 +61,9 @@ public partial class MainWindow : Window
         BrandLabel.ToolTip = Title;
         _ = CheckForUpdateAsync();
 
+        // Before the first scan, so the preview is built from the database when it can be.
+        await SignInSilentlyAsync();
+
         if (_startFolder != null) await ScanAsync(_startFolder, auto: false);
         else await ScanRemovableDrivesAsync(auto: true);
     }
@@ -130,6 +133,7 @@ public partial class MainWindow : Window
         {
             _busy = false;
             SetScanningUi(false, root);
+            UpdateAccountUi(); // a scan can find out the API refuses this user
         }
     }
 
@@ -145,6 +149,77 @@ public partial class MainWindow : Window
             SetBanner("api", $"Nastavitve CommonData API v {AppConfig.FileName} niso veljavne: {ex.Message}");
             return null;
         }
+    }
+
+    // ─── CommonData sign-in ──────────────────────────────────────────────────
+
+    /// <summary>Reuses a cached sign-in (the AutoCAD tools share the cache) without any window.</summary>
+    private async Task SignInSilentlyAsync()
+    {
+        if (GetApi() is not { } api)
+        {
+            AccountButton.Visibility = Visibility.Collapsed;
+            return;
+        }
+        AccountButton.Visibility = Visibility.Visible;
+        AccountText.Text = "Prijavljam …";
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+        await api.SignInSilentAsync(timeout.Token);
+        UpdateAccountUi();
+    }
+
+    private void UpdateAccountUi()
+    {
+        if (_api is not { } api) return;
+        if (api.IsSignedIn)
+        {
+            AccountText.Text = api.UserName!.Split('@')[0];
+            AccountGlyph.Data = (Geometry)FindResource("Icon.User");
+            AccountButton.ToolTip = $"Prijavljeni v CommonData kot {api.UserName}. Podatki o izometrijah so iz baze.";
+        }
+        else
+        {
+            AccountText.Text = "Prijava";
+            AccountGlyph.Data = (Geometry)FindResource("Icon.SignIn");
+            AccountButton.ToolTip = api.DisabledReason ??
+                "Prijavite se v CommonData, da so podatki o izometrijah iz baze. Brez prijave se uporabi titles.json.";
+        }
+    }
+
+    private async void OnAccountClick(object sender, RoutedEventArgs e)
+    {
+        if (_api is not { } api || _importing) return;
+        if (api.IsSignedIn)
+        {
+            var choice = await ShowDialogAsync("COMMONDATA", "Icon.User", false, 420,
+                BodyText($"Prijavljeni ste kot {api.UserName}. Projekt, sklop in ime izometrije se berejo iz baze."),
+                ("close", "Zapri", "SecondaryButton"), ("switch", "Drug račun", "SecondaryButton"));
+            if (choice != "switch") return;
+        }
+
+        AccountButton.IsEnabled = false;
+        AccountText.Text = "Prijava v brskalniku …";
+        try
+        {
+            await api.SignInInteractiveAsync(CancellationToken.None);
+        }
+        catch (Microsoft.Identity.Client.MsalClientException ex) when (ex.ErrorCode == "authentication_canceled")
+        {
+            // Closed the browser: nothing changes.
+        }
+        catch (Exception ex)
+        {
+            await ShowDialogAsync("PRIJAVA NI USPELA", "Icon.XCircle", true, 420, BodyText(CommonDataApi.Describe(ex)),
+                                  ("ok", "V redu", "SecondaryButton"));
+        }
+        finally
+        {
+            AccountButton.IsEnabled = true;
+            UpdateAccountUi();
+        }
+
+        // The table may have been built from titles.json; build it again from the database.
+        if (_plan != null && !_busy) await ScanAsync(_plan.Scan.Root, auto: false);
     }
 
     // ─── Updates ─────────────────────────────────────────────────────────────
