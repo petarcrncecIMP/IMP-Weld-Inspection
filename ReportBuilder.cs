@@ -76,6 +76,10 @@ public static class ReportBuilder
         return $"VT {today:yyyy}-001";
     }
 
+    /// <summary>Named as the inspectors name theirs: "Weld Inspection Report HCL - VT 2026-133".</summary>
+    public static string DocumentName(string unitName, string number) =>
+        FolderConventions.SanitizeFolderName($"Weld Inspection Report {unitName} - {number}") + ".docx";
+
     public static string FolderFor(ReportRequest request, string number) =>
         Path.Combine(request.ProjectFolder, ReportsFolderName,
                      FolderConventions.SanitizeFolderName($"{number} - {request.UnitName}"));
@@ -109,7 +113,7 @@ public static class ReportBuilder
             if (photos.Count > 0) groups.Add((iso, photos));
         }
 
-        var documentPath = Path.Combine(folder, FolderConventions.SanitizeFolderName(number) + ".docx");
+        var documentPath = Path.Combine(folder, DocumentName(request.UnitName, number));
         File.Copy(templatePath, documentPath);
         var welds = groups.Sum(g => g.Photos.Select(p => p.WeldLabel).Distinct(StringComparer.OrdinalIgnoreCase).Count());
         Fill(documentPath, request, number, date, groups, welds);
@@ -182,7 +186,7 @@ public static class ReportBuilder
                     .Replace("{{Isometrija}}", iso.BomCode));
                 if (photoMarker != null) KeepWithPhotos(line);
                 template.InsertBeforeSelf(line);
-                if (photoMarker != null) template.InsertBeforeSelf(PhotoTable(main, photos, ref id));
+                if (photoMarker != null) template.InsertBeforeSelf(PhotoTable(main, photos, CaptionStyle(photoMarker), ref id));
             }
             template.Remove();
             photoMarker?.Remove();
@@ -191,7 +195,7 @@ public static class ReportBuilder
         // A {{Fotografije}} of its own gets every photo of the skid.
         foreach (var marker in body.Descendants<W.Paragraph>().Where(p => TextOf(p).Contains("{{Fotografije}}")).ToList())
         {
-            marker.InsertBeforeSelf(PhotoTable(main, groups.SelectMany(g => g.Photos).ToList(), ref id));
+            marker.InsertBeforeSelf(PhotoTable(main, groups.SelectMany(g => g.Photos).ToList(), CaptionStyle(marker), ref id));
             marker.Remove();
         }
     }
@@ -208,8 +212,21 @@ public static class ReportBuilder
         if (props.KeepNext == null) props.PrependChild(new W.KeepNext());
     }
 
+    /// <summary>Captions are written in the {{Fotografije}} placeholder's own formatting, so
+    /// the template decides the font; Arial 10 when it says nothing.</summary>
+    private static W.RunProperties CaptionStyle(W.Paragraph marker)
+    {
+        var fromTemplate = marker.Descendants<W.Run>().Select(r => r.RunProperties).FirstOrDefault(p => p != null);
+        if (fromTemplate != null) return (W.RunProperties)fromTemplate.CloneNode(true);
+        return new W.RunProperties(
+            new W.RunFonts { Ascii = "Arial", HighAnsi = "Arial", ComplexScript = "Arial" },
+            new W.FontSize { Val = "20" },
+            new W.FontSizeComplexScript { Val = "20" });
+    }
+
     /// <summary>Borderless two-column table: photo, name below it.</summary>
-    private static W.Table PhotoTable(MainDocumentPart main, IReadOnlyList<StampedPhoto> photos, ref uint id)
+    private static W.Table PhotoTable(MainDocumentPart main, IReadOnlyList<StampedPhoto> photos,
+                                      W.RunProperties captionStyle, ref uint id)
     {
         var table = new W.Table(
             new W.TableProperties(
@@ -242,7 +259,7 @@ public static class ReportBuilder
                 {
                     cell.Append(new W.Paragraph(new W.ParagraphProperties(new W.SpacingBetweenLines { After = "0" }),
                                                 ImageRun(main, photo, id++)));
-                    cell.Append(Caption(Path.GetFileNameWithoutExtension(photo.Name)));
+                    cell.Append(Caption(Path.GetFileNameWithoutExtension(photo.Name), captionStyle));
                 }
                 row.Append(cell);
             }
@@ -251,9 +268,10 @@ public static class ReportBuilder
         return table;
     }
 
-    private static W.Paragraph Caption(string text) =>
+    private static W.Paragraph Caption(string text, W.RunProperties style) =>
         new(new W.ParagraphProperties(new W.SpacingBetweenLines { After = "240" }),
-            new W.Run(new W.RunProperties(new W.FontSize { Val = "18" }), new W.Text(text) { Space = SpaceProcessingModeValues.Preserve }));
+            new W.Run((W.RunProperties)style.CloneNode(true),
+                      new W.Text(text) { Space = SpaceProcessingModeValues.Preserve }));
 
     /// <summary>The photo, scaled to fit the box while keeping its shape.</summary>
     private static W.Run ImageRun(MainDocumentPart main, StampedPhoto photo, uint id)

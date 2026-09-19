@@ -29,6 +29,7 @@ public partial class MainWindow : Window
     private bool _busy;
     private bool _importing;
     private bool _viewerReady;
+    private bool _reportsReady;
     private Updater.Release? _update;
     private bool _updating;
 
@@ -79,6 +80,11 @@ public partial class MainWindow : Window
         if (ViewerTab.IsChecked == true)
         {
             await ViewerPage.RefreshAsync();
+            return;
+        }
+        if (ReportsTab.IsChecked == true)
+        {
+            await ReportsPage.RefreshAsync();
             return;
         }
         if (_busy) return;
@@ -224,20 +230,47 @@ public partial class MainWindow : Window
 
     // ─── Updates ─────────────────────────────────────────────────────────────
 
-    /// <summary>Asks GitHub once per start; the header button appears only when there is a
-    /// newer release. No network, no button, no message.</summary>
-    private async Task CheckForUpdateAsync()
+    /// <summary>Asks GitHub at start and whenever the button is pressed. The button stays in
+    /// the header either way, so an app left running for days can still be updated.</summary>
+    private async Task<bool> CheckForUpdateAsync()
     {
         _update = await Updater.CheckAsync(CancellationToken.None);
-        if (_update == null) return;
+        if (_update == null)
+        {
+            UpdateText.Text = "Posodobitve";
+            UpdateButton.ToolTip = Updater.IsDevBuild
+                ? "Razvojna različica se ne posodablja."
+                : $"Nameščena je v{Updater.CurrentVersion}. Kliknite za preverjanje posodobitev.";
+            return false;
+        }
         UpdateText.Text = $"Posodobi na {_update.Tag}";
         UpdateButton.ToolTip = $"Nameščena je v{Updater.CurrentVersion}, na voljo je {_update.Tag}.";
-        UpdateButton.Visibility = Visibility.Visible;
+        return true;
     }
 
     private async void OnUpdateClick(object sender, RoutedEventArgs e)
     {
-        if (_update is not { } release || _updating) return;
+        if (_updating) return;
+        if (_update == null)
+        {
+            // Nothing known yet: look again now, so the button works in an app left running.
+            var previous = UpdateText.Text;
+            UpdateButton.IsEnabled = false;
+            UpdateText.Text = "Preverjam …";
+            var found = await CheckForUpdateAsync();
+            UpdateButton.IsEnabled = true;
+            if (!found)
+            {
+                UpdateText.Text = previous == "Preverjam …" ? "Posodobitve" : previous;
+                await ShowDialogAsync("POSODOBITVE", "Icon.CheckCircle", false, 420,
+                    BodyText(Updater.IsDevBuild
+                        ? "To je razvojna različica, ki se ne posodablja."
+                        : $"Nameščena je najnovejša različica (v{Updater.CurrentVersion})."),
+                    ("ok", "V redu", "SecondaryButton"));
+                return;
+            }
+        }
+        if (_update is not { } release) return;
         if (_importing)
         {
             await ShowDialogAsync("UVOZ POTEKA", "Icon.WarningCircle", true, 360,
@@ -355,6 +388,10 @@ public partial class MainWindow : Window
                                          ("open", "Odpri poročilo", "PrimaryButton"));
         if (pick == "open") Run(() => Process.Start(new ProcessStartInfo(result.DocumentPath) { UseShellExecute = true }));
         else if (pick == "folder") OpenFolder(new[] { result.Folder });
+
+        // Land on the new report, where it can be turned into a PDF and read.
+        ReportsPage.PendingFolder = result.Folder;
+        ReportsTab.IsChecked = true;
     }
 
     private TextBlock Muted(string text, string fontSizeKey)
@@ -383,22 +420,35 @@ public partial class MainWindow : Window
     private async void OnTabChanged(object sender, RoutedEventArgs e)
     {
         // Fires once while InitializeComponent is still building the window.
-        if (ImportPage == null || ViewerPage == null) return;
+        if (ImportPage == null || ViewerPage == null || ReportsPage == null) return;
 
         var viewer = ViewerTab.IsChecked == true;
-        ImportPage.Visibility = viewer ? Visibility.Collapsed : Visibility.Visible;
+        var reports = ReportsTab.IsChecked == true;
+        ImportPage.Visibility = viewer || reports ? Visibility.Collapsed : Visibility.Visible;
         ViewerPage.Visibility = viewer ? Visibility.Visible : Visibility.Collapsed;
-        RescanButton.ToolTip = viewer ? "Osveži" : "Preglej znova";
-        if (!viewer) return;
+        ReportsPage.Visibility = reports ? Visibility.Visible : Visibility.Collapsed;
+        RescanButton.ToolTip = viewer || reports ? "Osveži" : "Preglej znova";
 
-        if (!_viewerReady)
+        // Every visit re-reads the share, so work done meanwhile is there.
+        if (viewer)
         {
-            ViewerPage.Initialize(_cfg, _settings);
-            ViewerPage.ReportRequested += OnReportRequestedAsync;
-            _viewerReady = true;
+            if (!_viewerReady)
+            {
+                ViewerPage.Initialize(_cfg, _settings);
+                ViewerPage.ReportRequested += OnReportRequestedAsync;
+                _viewerReady = true;
+            }
+            await ViewerPage.RefreshAsync();
         }
-        // Every visit re-reads the share, so photos imported meanwhile are there.
-        await ViewerPage.RefreshAsync();
+        else if (reports)
+        {
+            if (!_reportsReady)
+            {
+                ReportsPage.Initialize(_cfg, _settings);
+                _reportsReady = true;
+            }
+            await ReportsPage.RefreshAsync();
+        }
     }
 
     private void OnWeldRowDoubleClick(object sender, MouseButtonEventArgs e)

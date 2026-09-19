@@ -4,7 +4,7 @@ Copies endoscope weld photos from an SD card into `U:\100_Identi\140_Zvari`, sor
 by project, unit and isometrija, and names each photo after its weld. Photos are copied
 unstamped, as the endoscope took them. Project, unit and isometrija come from the
 CommonData database (sign-in shared with the AutoCAD tools), or from `titles.json` when
-offline. The Pregled page browses the photos already on the share and makes a Word report for a skid: stamped photos in the annex, packed in `{project}\Poročila\{number} - {skid}\`. The report template is an ordinary Word file on the share — see SPEC.md §6.
+offline. The Pregled page browses the photos already on the share and makes a Word report for a skid: stamped photos in the annex, packed in `{project}\Poročila\{number} - {skid}\`. The Poročila page lists finished reports, shows their PDF and makes it through Word. The report template is an ordinary Word file on the share — see SPEC.md §6.
 Details in [SPEC.md](SPEC.md); the look in [design/DESIGN.md](design/DESIGN.md).
 
 ## Download

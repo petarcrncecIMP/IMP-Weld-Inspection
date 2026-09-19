@@ -76,6 +76,13 @@
                             <TextBlock Text="Pregled" />
                         </StackPanel>
                     </RadioButton>
+                    <RadioButton x:Name="ReportsTab" GroupName="Page" Style="{StaticResource HeaderTab}" Margin="4,0,0,0"
+                                 AutomationProperties.Name="Poročila" Checked="OnTabChanged">
+                        <StackPanel Orientation="Horizontal">
+                            <local:Glyph Data="{StaticResource Icon.FileText}" Margin="0,0,8,0" />
+                            <TextBlock Text="Poročila" />
+                        </StackPanel>
+                    </RadioButton>
                 </StackPanel>
             </StackPanel>
             <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,0,12,0">
@@ -89,11 +96,11 @@
                 </Button>
                 <TextBlock x:Name="VersionText" Foreground="#B3FFFFFF" FontSize="12" VerticalAlignment="Center" Margin="0,0,12,0" />
                 <!-- Shown only when GitHub has a newer release. -->
-                <Button x:Name="UpdateButton" Style="{StaticResource UpdateButton}" Margin="0,0,8,0" Visibility="Collapsed"
+                <Button x:Name="UpdateButton" Style="{StaticResource UpdateButton}" Margin="0,0,8,0"
                         AutomationProperties.Name="Posodobi" Click="OnUpdateClick">
                     <StackPanel Orientation="Horizontal">
                         <local:Glyph Data="{StaticResource Icon.DownloadSimple}" Margin="0,0,8,0" />
-                        <TextBlock x:Name="UpdateText" Text="Posodobi" />
+                        <TextBlock x:Name="UpdateText" Text="Posodobitve" />
                     </StackPanel>
                 </Button>
                 <Button x:Name="RescanButton" Style="{StaticResource ToolbarButton}" ToolTip="Preglej znova" Click="OnRescanClick">
@@ -284,6 +291,7 @@
 
         <!-- ═══ Pregled ═══ -->
         <local:ViewerView x:Name="ViewerPage" Grid.Row="3" Visibility="Collapsed" />
+        <local:ReportsView x:Name="ReportsPage" Grid.Row="3" Visibility="Collapsed" />
 
         <!-- Dialog host: dims the window, card fades and scales in. -->
         <Grid x:Name="DialogOverlay" Grid.RowSpan="4" Panel.ZIndex="10" Background="{DynamicResource OverlayBrush}" Visibility="Collapsed">

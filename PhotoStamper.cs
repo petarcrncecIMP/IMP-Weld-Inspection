@@ -6,9 +6,11 @@ using SkiaSharp;
 namespace IMPWeldPhotos;
 
 /// <summary>
-/// Stamps a photo with its own file name (SPEC.md §4 "Stamping"; reference render
-/// design/samples/stamp-preview.jpg): white Segoe UI Semibold, centred, text centre
-/// at 86 % of the height, soft 60 % black shadow.
+/// Stamps a photo with its own file name (SPEC.md §4 "Stamping"). Made to match the
+/// endoscope's own overlay in the old reports: plain white Arial, small (3.4 % of the
+/// height), with a soft dark shadow so it reads on bright pipe walls. It sits in the
+/// bottom-right corner, because the endoscope writes its date bottom-left and the isometrija
+/// code bottom-centre, and two texts on top of each other read as neither.
 /// </summary>
 public static class PhotoStamper
 {
@@ -45,13 +47,15 @@ public static class PhotoStamper
 
     public static void DrawStamp(SKCanvas canvas, string text, int width, int height)
     {
-        using var typeface = SKTypeface.FromFamilyName("Segoe UI", SKFontStyleWeight.SemiBold,
+        using var typeface = SKTypeface.FromFamilyName("Arial", SKFontStyleWeight.Normal,
                                                        SKFontStyleWidth.Normal, SKFontStyleSlant.Upright)
+                             ?? SKTypeface.FromFamilyName("Segoe UI", SKFontStyleWeight.Normal,
+                                                          SKFontStyleWidth.Normal, SKFontStyleSlant.Upright)
                              ?? SKTypeface.Default;
         using var fill = new SKPaint
         {
             Typeface = typeface,
-            TextSize = height * 0.06f,
+            TextSize = height * 0.034f,
             IsAntialias = true,
             SubpixelText = true,
             Color = SKColors.White,
@@ -60,7 +64,7 @@ public static class PhotoStamper
         // Centre on the ink, not the advance, so the text sits where it looks centred.
         var bounds = new SKRect();
         fill.MeasureText(text, ref bounds);
-        var maxWidth = width * 0.9f;
+        var maxWidth = width * 0.6f; // the endoscope's own code sits bottom-centre
         while (bounds.Width > maxWidth && fill.TextSize > 4)
         {
             fill.TextSize = Math.Max(4, fill.TextSize * Math.Min(0.98f, maxWidth / bounds.Width));
@@ -68,13 +72,13 @@ public static class PhotoStamper
         }
 
         var size = fill.TextSize;
-        var x = (width - bounds.Width) / 2f - bounds.Left;
-        var y = height * 0.86f - bounds.MidY;
-        var offset = Math.Max(1f, size * 0.06f);
+        var x = width * 0.985f - bounds.Right;
+        var y = height * 0.965f - bounds.MidY;
+        var offset = Math.Max(1f, size * 0.08f);
 
         using var shadow = fill.Clone();
-        shadow.Color = new SKColor(0, 0, 0, 153);
-        shadow.MaskFilter = SKMaskFilter.CreateBlur(SKBlurStyle.Normal, Math.Max(1f, size * 0.08f));
+        shadow.Color = new SKColor(0, 0, 0, 170);
+        shadow.MaskFilter = SKMaskFilter.CreateBlur(SKBlurStyle.Normal, Math.Max(1f, size * 0.10f));
         canvas.DrawText(text, x + offset, y + offset, shadow);
         canvas.DrawText(text, x, y, fill);
     }

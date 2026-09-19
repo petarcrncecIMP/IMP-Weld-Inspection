@@ -204,16 +204,17 @@ report still says which weld each photo shows. `PhotoStamper` implements the
 rules below and is kept for that.
 
 - **Text:** the final file name without extension, e.g. `2000487-W2a-1`.
-- **Position:** horizontally centered. Vertically near the bottom: put the
-  vertical center of the text at **86 % of the image height**.
+- **Position:** the **bottom-right corner** (right edge at 98.5 % of the width, text
+  centre at 96.5 % of the height). The endoscope writes its own date bottom-left and the
+  isometrija code bottom-centre, and two texts on top of each other read as neither.
 - **Look:** white text with a dark drop shadow, so it reads on any background.
   Bright pipe walls, dark bores and weld glare all occur. Use a semi-transparent
   black shadow (about 60 % opacity), offset down and right by about 6 % of the
   font size, softly blurred. If the shadow alone doesn't hold up on very bright
   frames, add a thin dark outline. Keep the text itself pure white.
-- **Size:** relative to the image, not fixed pixels. Start with a font height of
-  about **6 % of the image height**, bold sans-serif (Segoe UI Semibold). If the
-  text would be wider than 90 % of the image width, shrink it until it fits.
+- **Size:** relative to the image, not fixed pixels, and as small as the endoscope's own
+  overlay: font height **3.4 % of the image height**, plain Arial (not bold), shrunk further
+  if the text would pass 60 % of the image width.
 - **Orientation:** apply the EXIF orientation before stamping, so the text is
   upright however the camera was held. Write the output upright and reset the
   orientation tag, so no viewer rotates it a second time.
@@ -259,7 +260,9 @@ be started by hand with a "Scan again" button.
    isometrija here. Images are read into memory before decoding, so the viewer
    never keeps a file on the share open. Photos are shown upright per their EXIF
    orientation, which the originals keep.
-6. **CommonData account** in the header: the signed-in user's name, or **Prijava**
+6. **Poročila**, a third page: the project's finished reports, their PDF shown in the app,
+   and the buttons to make the PDF (through Word), edit in Word or open the folder (§6).
+7. **CommonData account** in the header: the signed-in user's name, or **Prijava**
    to sign in through the browser. After signing in the preview is rebuilt from
    the database.
 
@@ -289,15 +292,34 @@ the report number and builds the document with every photo of that skid.
   | `{{Fotografije}}` | that isometrija's photos; on its own, every photo of the skid |
   `templates\Weld Inspection Report.docx` in this repo is the template made from the
   customer's own VT 2026-133 report.
-- **Output:** `{project}\Poročila\{number} - {skid}\` with `{number}.docx` and the **stamped**
+- **Output:** `{project}\Poročila\{number} - {skid}\` with
+  `Weld Inspection Report {skid} - {number}.docx` (the inspectors' own naming) and the **stamped**
   photos beside it, so the whole folder can be zipped and sent. An existing folder is never
   overwritten: the same number twice is refused.
 - **Photos:** every photo of every isometrija in the skid, videos excluded, stamped as in §4,
   two per row in a 6.5 × 4.9 cm box, the file name as the caption, grouped by isometrija with
   the heading kept on the page with its photos. The photos on the share stay unstamped.
+- **Captions** are written in the `{{Fotografije}}` placeholder's own formatting, so the
+  template decides the font (Arial 10 in ours); Word's document default is Times New Roman,
+  which is not what these reports use.
 - **Report number:** typed in, suggested from the last one used on that PC (`settings.json`),
   raising its final digits by one; a new year restarts at `001`.
 - The `Poročila` and `_Predloge` folders are not isometrije, so the viewer skips them.
+
+### The Poročila page
+
+A third page beside Uvoz and Pregled, for finished reports:
+
+- The picked project's reports, newest first, with skid, photo count and date; a mark shows
+  which already have a PDF.
+- **PDF** is made by driving **Word itself** (late binding, no Office interop assembly), so
+  the PDF is exactly what Word prints. Word needs a plain Windows path, a worker thread (not
+  the UI thread) and an en-US thread culture; a document just written can need a retry, and
+  one opened from a share can land in Protected View, whose window `Edit()` turns into the
+  document. Without Word installed, the page says so and the report can still be opened.
+- The PDF is shown page by page in the app (PDFium, read into memory so nothing on the share
+  stays open), and the report can be opened in Word for editing or shown in Explorer.
+- Making a report from Pregled lands here, on the new report.
 
 ---
 

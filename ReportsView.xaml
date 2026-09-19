@@ -1,0 +1,101 @@
+<UserControl x:Class="IMPWeldPhotos.ReportsView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:local="clr-namespace:IMPWeldPhotos"
+             Background="{DynamicResource WindowBackgroundBrush}">
+    <Grid>
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="320" />
+            <ColumnDefinition Width="*" />
+        </Grid.ColumnDefinitions>
+
+        <!-- Left: the project's reports, newest first. -->
+        <Border Grid.Column="0" Background="{DynamicResource SurfaceBrush}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="0,0,1,0">
+            <DockPanel>
+                <local:ProjectPicker x:Name="ProjectBox" DockPanel.Dock="Top" Margin="12,12,12,8" />
+                <TextBlock x:Name="ReportCountText" DockPanel.Dock="Bottom" Style="{StaticResource Muted}" Margin="12,6,12,8"
+                           TextTrimming="CharacterEllipsis" />
+                <ListBox x:Name="ReportList" Style="{StaticResource PlainList}" SelectionChanged="OnReportSelected"
+                         IsSynchronizedWithCurrentItem="False">
+                    <ListBox.ItemTemplate>
+                        <DataTemplate>
+                            <StackPanel Margin="4,2" ToolTip="{Binding Folder}">
+                                <DockPanel>
+                                    <local:Glyph x:Name="PdfMark" DockPanel.Dock="Right" Data="{StaticResource Icon.FileText}"
+                                                 Width="13" Height="13" Margin="8,2,0,0" VerticalAlignment="Top"
+                                                 Foreground="{DynamicResource SuccessBrush}" Visibility="Collapsed"
+                                                 ToolTip="PDF je pripravljen" />
+                                    <TextBlock Text="{Binding Number}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
+                                </DockPanel>
+                                <TextBlock Text="{Binding Summary}" Style="{StaticResource Muted}" TextTrimming="CharacterEllipsis" />
+                            </StackPanel>
+                            <DataTemplate.Triggers>
+                                <DataTrigger Binding="{Binding HasPdf}" Value="True">
+                                    <Setter TargetName="PdfMark" Property="Visibility" Value="Visible" />
+                                </DataTrigger>
+                            </DataTemplate.Triggers>
+                        </DataTemplate>
+                    </ListBox.ItemTemplate>
+                </ListBox>
+            </DockPanel>
+        </Border>
+
+        <!-- Right: the report itself. -->
+        <Grid Grid.Column="1">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="*" />
+            </Grid.RowDefinitions>
+
+            <DockPanel x:Name="ReportHeader" Margin="16,12,16,8" Visibility="Collapsed">
+                <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
+                    <Button x:Name="PdfButton" Style="{StaticResource SecondaryButton}" Margin="0,0,8,0" Click="OnPdfClick">
+                        <StackPanel Orientation="Horizontal">
+                            <local:Glyph Data="{StaticResource Icon.FileText}" Margin="0,0,8,0" />
+                            <TextBlock x:Name="PdfButtonText" Text="Ustvari PDF" />
+                        </StackPanel>
+                    </Button>
+                    <Button x:Name="WordButton" Style="{StaticResource SecondaryButton}" Margin="0,0,8,0" Click="OnWordClick"
+                            ToolTip="Odpri dokument v Wordu za urejanje">
+                        <StackPanel Orientation="Horizontal">
+                            <local:Glyph Data="{StaticResource Icon.FileText}" Margin="0,0,8,0" />
+                            <TextBlock Text="Uredi v Wordu" />
+                        </StackPanel>
+                    </Button>
+                    <Button x:Name="FolderButton" Style="{StaticResource SecondaryButton}" Click="OnOpenFolderClick"
+                            ToolTip="Odpri mapo poročila v Raziskovalcu">
+                        <StackPanel Orientation="Horizontal">
+                            <local:Glyph Data="{StaticResource Icon.FolderOpen}" Margin="0,0,8,0" />
+                            <TextBlock Text="Odpri mapo" />
+                        </StackPanel>
+                    </Button>
+                </StackPanel>
+                <StackPanel VerticalAlignment="Center">
+                    <TextBlock x:Name="ReportTitle" Style="{StaticResource Heading}" TextTrimming="CharacterEllipsis" />
+                    <TextBlock x:Name="ReportSubtitle" Style="{StaticResource Muted}" TextTrimming="CharacterEllipsis" />
+                </StackPanel>
+            </DockPanel>
+
+            <ScrollViewer x:Name="PagesScroll" Grid.Row="1" VerticalScrollBarVisibility="Auto" Padding="16,0,16,16" Visibility="Collapsed">
+                <ItemsControl x:Name="Pages">
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                            <Border Margin="0,0,0,16" Background="White" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1"
+                                    HorizontalAlignment="Center">
+                                <Image Source="{Binding}" Stretch="Uniform" MaxWidth="900" />
+                            </Border>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+            </ScrollViewer>
+
+            <StackPanel x:Name="CenterEmpty" Grid.Row="1" VerticalAlignment="Center" HorizontalAlignment="Center" MaxWidth="460">
+                <TextBlock x:Name="EmptyTitle" Style="{StaticResource Heading}" HorizontalAlignment="Center" Text="IZBERITE POROČILO" />
+                <TextBlock x:Name="EmptyText" Style="{StaticResource Muted}" TextWrapping="Wrap" TextAlignment="Center" Margin="0,8,0,0"
+                           Text="Poročila nastanejo na strani Pregled z gumbom Poročilo." />
+                <Button x:Name="EmptyPdfButton" Style="{StaticResource PrimaryButton}" HorizontalAlignment="Center" Margin="0,16,0,0"
+                        Visibility="Collapsed" Click="OnPdfClick" Content="Ustvari PDF" />
+            </StackPanel>
+        </Grid>
+    </Grid>
+</UserControl>
