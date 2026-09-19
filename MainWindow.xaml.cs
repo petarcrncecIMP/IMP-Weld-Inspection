@@ -35,12 +35,13 @@ public partial class MainWindow : Window
 
     private readonly bool _afterUpdate;
 
-    public MainWindow(UserSettings settings, string? startFolder, bool afterUpdate = false)
+    public MainWindow(UserSettings settings, string? startFolder, bool afterUpdate = false, CommonDataApi? api = null)
     {
         InitializeComponent();
         _settings = settings;
         _startFolder = startFolder;
         _afterUpdate = afterUpdate;
+        _api = api; // signed in (or tried to) before the window opened
         _cfg = AppConfig.Load(out var configError);
         if (configError != null) _banner["config"] = configError;
 
@@ -187,6 +188,11 @@ public partial class MainWindow : Window
     private void UpdateAccountUi()
     {
         if (_api is not { } api) return;
+        // Not signed in: everything still works on titles.json, but it keeps asking.
+        LoginBanner.Visibility = api.IsSignedIn ? Visibility.Collapsed : Visibility.Visible;
+        LoginBannerText.Text = api.DisabledReason is { } refused
+            ? $"CommonData: {refused}. Podatki o izometrijah so iz titles.json."
+            : "Niste prijavljeni v CommonData, zato so podatki o izometrijah iz titles.json in obstoječe mape se ne preimenujejo.";
         if (api.IsSignedIn)
         {
             AccountText.Text = api.UserName!.Split('@')[0];

@@ -52,11 +52,50 @@ public partial class App : Application
         var settings = UserSettings.Load();
         ApplyTheme(settings.Theme == null ? UserSettings.WindowsUsesDarkTheme() : settings.Theme == "dark");
 
+        _ = ShowMainWindowAsync(e.Args, settings);
+    }
+
+    /// <summary>
+    /// CommonData sign-in comes first: on a PC without a valid sign-in the Microsoft login opens
+    /// before the app does. If the login is cancelled, fails or Entra can't be reached, the app
+    /// still opens - on titles.json - and keeps asking to sign in (MainWindow's banner). Right
+    /// after an update there is no login in between: the old window is waiting for this one.
+    /// </summary>
+    private async Task ShowMainWindowAsync(string[] args, UserSettings settings)
+    {
+        var afterUpdate = args.Contains(Updater.AfterUpdateArg);
+        var cfg = AppConfig.Load(out _);
+        CommonDataApi? api = null;
+        if (cfg.Api.IsConfigured)
+        {
+            try
+            {
+                api = new CommonDataApi(cfg.Api);
+                using var quick = new CancellationTokenSource(TimeSpan.FromSeconds(15));
+                if (await api.TrySignInSilentAsync(quick.Token) == CommonDataApi.SilentResult.NeedsSignIn && !afterUpdate)
+                {
+                    using var login = new CancellationTokenSource(TimeSpan.FromMinutes(3));
+                    try
+                    {
+                        await api.SignInInteractiveAsync(login.Token);
+                    }
+                    catch (Exception)
+                    {
+                        // Cancelled, closed or failed: the window opens anyway and asks again.
+                    }
+                }
+            }
+            catch (Exception)
+            {
+                api = null; // settings the client refuses: the window reports them
+            }
+        }
+
         // A folder on the command line is scanned instead of waiting for a card.
-        var window = new MainWindow(settings, e.Args.FirstOrDefault(Directory.Exists),
-                                    afterUpdate: e.Args.Contains(Updater.AfterUpdateArg));
+        var window = new MainWindow(settings, args.FirstOrDefault(Directory.Exists), afterUpdate, api);
         MainWindow = window;
         window.Show();
+        window.Activate(); // the browser had the focus during the login
 
         _showEvent = new EventWaitHandle(false, EventResetMode.AutoReset, ShowEventName);
         new Thread(() =>

@@ -130,6 +130,12 @@ must be copied rather than reinvented:
 
 The card only has the BomCode. Resolve each BomCode in this order:
 
+The sign-in comes first: at start the app signs in from the shared token cache without a
+window, and on a PC with no valid sign-in it opens the Microsoft login **before** the app
+window. A cancelled or failed login, or an unreachable Entra, doesn't block anything — the app
+opens on titles.json and shows an amber banner with a **Prijava** button until it is signed in.
+Right after an update it never logs in first: the old window is waiting for the new one.
+
 1. **CommonData database** (decided 2026-09-19), for the signed-in user:
    OData `GET {BaseUrl}/odata/FabBomIsoView?$filter=BomCode eq a or BomCode eq b …&$select=BomCode,BomName,ProjectCode,ProjectName,UnitCode,UnitName`,
    20 codes per request. Built-in connection: production CommonData with the

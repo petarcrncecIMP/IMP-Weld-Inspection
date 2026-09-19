@@ -66,20 +66,35 @@ public sealed class CommonDataApi : IDisposable
         AttachPersistentTokenCache(_pca.UserTokenCache);
     }
 
-    /// <summary>Signs in from the token cache without any window. False when an interactive
-    /// sign-in is needed or the service can't be reached.</summary>
-    public async Task<bool> SignInSilentAsync(CancellationToken ct)
+    public enum SilentResult
+    {
+        SignedIn,
+        /// <summary>No account on this PC, or its sign-in has expired: a login is needed.</summary>
+        NeedsSignIn,
+        /// <summary>Entra or the network didn't answer; a login wouldn't help now.</summary>
+        Unreachable,
+    }
+
+    /// <summary>Signs in from the token cache without any window.</summary>
+    public async Task<SilentResult> TrySignInSilentAsync(CancellationToken ct)
     {
         try
         {
             await TokenAsync(interactive: false, ct);
-            return true;
+            return SilentResult.SignedIn;
         }
-        catch (Exception) when (!ct.IsCancellationRequested)
+        catch (NotSignedInException)
         {
-            return false;
+            return SilentResult.NeedsSignIn;
+        }
+        catch (Exception)
+        {
+            return SilentResult.Unreachable;
         }
     }
+
+    public async Task<bool> SignInSilentAsync(CancellationToken ct) =>
+        await TrySignInSilentAsync(ct) == SilentResult.SignedIn;
 
     /// <summary>Opens the system browser to sign in (or pick another account).</summary>
     public async Task SignInInteractiveAsync(CancellationToken ct)
