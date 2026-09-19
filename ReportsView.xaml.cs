@@ -31,6 +31,9 @@ public partial class ReportsView : UserControl
     /// <summary>Asks the window to make a report for one of these skids; it owns the dialogs.</summary>
     public event Func<IReadOnlyList<ReportRequest>, Task>? NewReportRequested;
 
+    /// <summary>Asks the window to delete this report, warning first.</summary>
+    public event Func<ReportEntry, Task>? DeleteRequested;
+
     public ReportsView()
     {
         InitializeComponent();
@@ -271,6 +274,22 @@ public partial class ReportsView : UserControl
             ReportList.SelectedItem = updated;
             _settingSource = false;
             await ShowReportAsync(updated);
+        }
+    }
+
+    private async void OnDeleteClick(object sender, RoutedEventArgs e)
+    {
+        if (_current is not { } report || DeleteRequested is not { } handler || _busy) return;
+        // The viewer keeps the PDF open, and an open file can't be deleted.
+        HidePdf();
+        DeleteButton.IsEnabled = false;
+        try
+        {
+            await handler(report);
+        }
+        finally
+        {
+            DeleteButton.IsEnabled = true;
         }
     }
 

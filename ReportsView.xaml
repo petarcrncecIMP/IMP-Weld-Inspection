@@ -71,12 +71,16 @@
                             <TextBlock Text="Uredi v Wordu" />
                         </StackPanel>
                     </Button>
-                    <Button x:Name="FolderButton" Style="{StaticResource SecondaryButton}" Click="OnOpenFolderClick"
+                    <Button x:Name="FolderButton" Style="{StaticResource SecondaryButton}" Margin="0,0,8,0" Click="OnOpenFolderClick"
                             ToolTip="Odpri mapo poročila v Raziskovalcu">
                         <StackPanel Orientation="Horizontal">
                             <local:Glyph Data="{StaticResource Icon.FolderOpen}" Margin="0,0,8,0" />
                             <TextBlock Text="Odpri mapo" />
                         </StackPanel>
+                    </Button>
+                    <Button x:Name="DeleteButton" Style="{StaticResource DangerButton}" Click="OnDeleteClick" AutomationProperties.Name="Izbriši poročilo"
+                            ToolTip="Izbriši to poročilo z vsemi ožigosanimi fotografijami">
+                        <local:Glyph Data="{StaticResource Icon.Trash}" />
                     </Button>
                 </StackPanel>
                 <StackPanel VerticalAlignment="Center">

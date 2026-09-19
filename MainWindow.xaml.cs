@@ -435,6 +435,35 @@ public partial class MainWindow : Window
         else if (pick == "folder") OpenFolder(new[] { result.Folder });
     }
 
+    /// <summary>Deleting a report throws away the whole folder. That is safe — the photos it
+    /// was made from stay on the share — but it is spelled out before anything happens.</summary>
+    private async Task OnDeleteReportAsync(ReportEntry report)
+    {
+        var body = new StackPanel();
+        body.Children.Add(BodyText(
+            $"Izbrisana bo celotna mapa poročila {report.Number} ({report.UnitName}): dokument Word, " +
+            (report.HasPdf ? "PDF " : "") +
+            $"in {Plural(report.Photos, "ožigosana fotografija", "ožigosani fotografiji", "ožigosane fotografije", "ožigosanih fotografij")}."));
+        body.Children.Add(BodyText("Uvožene fotografije na strežniku ostanejo nedotaknjene, zato lahko poročilo kadar koli naredite znova."));
+        body.Children.Add(Muted(report.Folder, "TinyFontSize"));
+
+        var choice = await ShowDialogAsync("IZBRIŠI POROČILO", "Icon.Trash", true, 560, body,
+                                           ("cancel", "Prekliči", "SecondaryButton"),
+                                           ("delete", "Izbriši", "DangerButton"));
+        if (choice != "delete") return;
+
+        try
+        {
+            await ReportIndex.DeleteAsync(report.Folder, CancellationToken.None);
+        }
+        catch (Exception ex)
+        {
+            await ShowDialogAsync("BRISANJE NI USPELO", "Icon.XCircle", true, 560,
+                                  BodyText($"{report.Folder}: {ex.Message}"), ("ok", "V redu", "SecondaryButton"));
+        }
+        await ReportsPage.RefreshAsync();
+    }
+
     private TextBlock Muted(string text, string fontSizeKey)
     {
         var block = new TextBlock { Text = text, TextWrapping = TextWrapping.Wrap };
@@ -486,6 +515,7 @@ public partial class MainWindow : Window
             {
                 ReportsPage.Initialize(_cfg, _settings);
                 ReportsPage.NewReportRequested += OnNewReportAsync;
+                ReportsPage.DeleteRequested += OnDeleteReportAsync;
                 _reportsReady = true;
             }
             await ReportsPage.RefreshAsync();

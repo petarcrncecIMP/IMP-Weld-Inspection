@@ -58,6 +58,26 @@ public sealed class ReportEntry
 
 public static class ReportIndex
 {
+    /// <summary>Deletes a whole report folder. Only ever holds a report and its stamped
+    /// copies: the photos it was made from stay on the share, so it can be made again.</summary>
+    public static async Task DeleteAsync(string folder, CancellationToken ct)
+    {
+        foreach (var file in Directory.EnumerateFiles(folder, "*", SearchOption.AllDirectories))
+        {
+            try
+            {
+                File.SetAttributes(file, FileAttributes.Normal);
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+            {
+                // Deleting will report it properly below.
+            }
+        }
+        // A PDF just closed in the viewer, or a document Word has finished with, can be held
+        // for a moment longer.
+        await ShareRetry.RunAsync(() => Directory.Delete(folder, true), ct);
+    }
+
     /// <summary>Every report of one project, newest first. Predloga.docx sits in the
     /// Poročila folder itself, not in a report folder, so it is never listed.</summary>
     public static List<ReportEntry> Load(string projectFolder)

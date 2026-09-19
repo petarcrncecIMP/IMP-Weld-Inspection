@@ -331,6 +331,9 @@ A third page beside Uvoz and Pregled, for finished reports:
   The report can also be opened in Word for editing or shown in Explorer.
 - **Novo poročilo** lives here too: pick the skid (with its photo count; a skid without
   photos can't be picked) and the number, and the new report is selected when it's done.
+- **Delete** throws the whole report folder away after spelling out what goes: the document,
+  the PDF and the stamped copies. It is safe because the imported photos stay on the share and
+  the report can be made again; the viewer lets go of the PDF first, so the folder is free.
 
 ---
 
