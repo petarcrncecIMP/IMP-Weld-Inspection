@@ -286,10 +286,12 @@ One report per **skid** (unit), made on the Poročila page: **Novo poročilo** a
 of the picked project and for the report number, then builds the document with every photo of
 that skid.
 
-- **Template:** the project's own `{project}\Poročila\Predloga.docx` if it exists, else the
-  shared `U:\100_Identi\140_Zvari\_Predloge\Weld Inspection Report.docx`. It is an ordinary
-  Word file anyone can edit (the customer's logo, texts and standards live there); the app
-  only replaces these tokens and leaves everything else alone:
+- **Template:** built into the app — `templates\Weld Inspection Report.docx` in this repo,
+  embedded in the exe, so there is no template folder on the share (decided 2026-09-19;
+  changing it means a release). A project can override it with its own
+  `{project}\Poročila\Predloga.docx`, an ordinary Word file (a customer's logo, texts and
+  standards). The dialog names which one a report is made from. The app only replaces these
+  tokens and leaves everything else alone:
   | Token | Filled with |
   |---|---|
   | `{{PorociloSt}}` | report number, also in the header |
@@ -319,7 +321,8 @@ that skid.
   which is not what these reports use.
 - **Report number:** typed in, suggested from the last one used on that PC (`settings.json`),
   raising its final digits by one; a new year restarts at `001`.
-- The `Poročila` and `_Predloge` folders are not isometrije, so the viewer skips them.
+- The `Poročila` folder is not an isometrija, so the viewer skips it (as it does any
+  `_`-prefixed folder at the root).
 
 ### The Poročila page
 
