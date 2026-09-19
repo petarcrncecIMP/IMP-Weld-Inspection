@@ -6,15 +6,35 @@ using SkiaSharp;
 namespace IMPWeldPhotos;
 
 /// <summary>
-/// Stamps a photo with its own file name (SPEC.md §4 "Stamping"). Made to match the
-/// endoscope's own overlay in the old reports: plain white Arial, small (3.4 % of the
-/// height), with a soft dark shadow so it reads on bright pipe walls. It sits in the
-/// bottom-right corner, because the endoscope writes its date bottom-left and the isometrija
-/// code bottom-centre, and two texts on top of each other read as neither.
+/// Stamps a photo with its own file name (SPEC.md §4 "Stamping"). Made to look like the
+/// endoscope's own overlay in the old reports: white glyphs of a squarish console font with a
+/// hard black outline, small (3.4 % of the height). It sits in the bottom-right corner,
+/// because the endoscope writes its date bottom-left and the isometrija code bottom-centre,
+/// and two texts on top of each other read as neither.
 /// </summary>
 public static class PhotoStamper
 {
     public const int JpegQuality = 92;
+
+    /// <summary>The endoscope's overlay is a squarish console font; the first of these that
+    /// the PC has is used. Overridable so a render test can compare candidates.</summary>
+    public static string[] FontPreference { get; set; } = { "Lucida Console", "Consolas", "Courier New", "Arial" };
+
+    /// <summary>Outline thickness, as a share of the font size.</summary>
+    public static float OutlineWidth { get; set; } = 0.16f;
+
+    private static SKTypeface Typeface()
+    {
+        foreach (var family in FontPreference)
+        {
+            var typeface = SKTypeface.FromFamilyName(family, SKFontStyleWeight.Normal,
+                                                     SKFontStyleWidth.Normal, SKFontStyleSlant.Upright);
+            if (typeface != null && string.Equals(typeface.FamilyName, family, StringComparison.OrdinalIgnoreCase))
+                return typeface;
+            typeface?.Dispose();
+        }
+        return SKTypeface.Default;
+    }
 
     public sealed record Stamped(byte[] Bytes, int Width, int Height);
 
@@ -47,11 +67,7 @@ public static class PhotoStamper
 
     public static void DrawStamp(SKCanvas canvas, string text, int width, int height)
     {
-        using var typeface = SKTypeface.FromFamilyName("Arial", SKFontStyleWeight.Normal,
-                                                       SKFontStyleWidth.Normal, SKFontStyleSlant.Upright)
-                             ?? SKTypeface.FromFamilyName("Segoe UI", SKFontStyleWeight.Normal,
-                                                          SKFontStyleWidth.Normal, SKFontStyleSlant.Upright)
-                             ?? SKTypeface.Default;
+        using var typeface = Typeface();
         using var fill = new SKPaint
         {
             Typeface = typeface,
@@ -74,12 +90,26 @@ public static class PhotoStamper
         var size = fill.TextSize;
         var x = width * 0.985f - bounds.Right;
         var y = height * 0.965f - bounds.MidY;
-        var offset = Math.Max(1f, size * 0.08f);
 
+        // A hard outline, as the endoscope draws its own text: it holds on glare and on dark
+        // bores alike, where a blurred shadow washes out.
+        using var outline = fill.Clone();
+        outline.Style = SKPaintStyle.Stroke;
+        outline.StrokeWidth = Math.Max(1.5f, size * OutlineWidth);
+        outline.StrokeJoin = SKStrokeJoin.Round;
+        outline.Color = new SKColor(0, 0, 0, 235);
+
+        // Under both, a soft shadow lifts the text off a busy weld seam.
         using var shadow = fill.Clone();
-        shadow.Color = new SKColor(0, 0, 0, 170);
-        shadow.MaskFilter = SKMaskFilter.CreateBlur(SKBlurStyle.Normal, Math.Max(1f, size * 0.10f));
-        canvas.DrawText(text, x + offset, y + offset, shadow);
+        shadow.Color = new SKColor(0, 0, 0, 120);
+        shadow.MaskFilter = SKMaskFilter.CreateBlur(SKBlurStyle.Normal, Math.Max(1f, size * 0.12f));
+
+        // The endoscope's glyphs are a shade heavier than Lucida Console draws them.
+        fill.Style = SKPaintStyle.StrokeAndFill;
+        fill.StrokeWidth = size * 0.035f;
+
+        canvas.DrawText(text, x + size * 0.05f, y + size * 0.05f, shadow);
+        canvas.DrawText(text, x, y, outline);
         canvas.DrawText(text, x, y, fill);
     }
 

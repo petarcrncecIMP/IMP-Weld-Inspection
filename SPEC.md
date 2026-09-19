@@ -207,14 +207,16 @@ rules below and is kept for that.
 - **Position:** the **bottom-right corner** (right edge at 98.5 % of the width, text
   centre at 96.5 % of the height). The endoscope writes its own date bottom-left and the
   isometrija code bottom-centre, and two texts on top of each other read as neither.
-- **Look:** white text with a dark drop shadow, so it reads on any background.
-  Bright pipe walls, dark bores and weld glare all occur. Use a semi-transparent
-  black shadow (about 60 % opacity), offset down and right by about 6 % of the
-  font size, softly blurred. If the shadow alone doesn't hold up on very bright
-  frames, add a thin dark outline. Keep the text itself pure white.
+- **Look:** as the endoscope draws its own overlay — pure white glyphs with a **hard black
+  outline** (about 16 % of the font size, round joins), plus a soft dark shadow underneath.
+  Bright pipe walls, dark bores and weld glare all occur, and an outline holds on all of them
+  where a blurred shadow washes out.
 - **Size:** relative to the image, not fixed pixels, and as small as the endoscope's own
-  overlay: font height **3.4 % of the image height**, plain Arial (not bold), shrunk further
-  if the text would pass 60 % of the image width.
+  overlay: font height **3.4 % of the image height**, shrunk further
+  if the text would pass 60 % of the image width. The face is the squarish console font the
+  endoscope uses: **Lucida Console**, else Consolas or Courier New, drawn a shade heavier
+  (a 3.5 % stroke on the fill) to match its weight. Consolas and Cascadia slash their zeros,
+  which the endoscope does not, so they are only fallbacks.
 - **Orientation:** apply the EXIF orientation before stamping, so the text is
   upright however the camera was held. Write the output upright and reset the
   orientation tag, so no viewer rotates it a second time.
