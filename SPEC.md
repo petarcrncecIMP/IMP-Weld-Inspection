@@ -294,8 +294,11 @@ that skid.
   | `{{Fotografije}}` | that isometrija's photos; on its own, every photo of the skid |
   `templates\Weld Inspection Report.docx` in this repo is the template made from the
   customer's own VT 2026-133 report.
-- **Output:** `{project}\Poročila\{number} - {skid}\` with
-  `Weld Inspection Report {skid} - {number}.docx` (the inspectors' own naming) and the **stamped**
+- **Output:** `{project}\Poročila\{number} - {skid}\` with the document named in three parts,
+  as the inspectors write it — `Weld Inspection Report` · the skid · the number, e.g.
+  `Weld Inspection Report HCL - VT 2026-133.docx`. The skid part is derived from the unit name
+  (dropping a trailing word that only says "skid", so "HCL skid" → "HCL") and can be corrected
+  in the dialog, which shows the resulting file name as it is typed. Beside it go the **stamped**
   photos beside it, so the whole folder can be zipped and sent. An existing folder is never
   overwritten: the same number twice is refused.
 - **Photos:** every photo of every isometrija in the skid, videos excluded, stamped as in §4,

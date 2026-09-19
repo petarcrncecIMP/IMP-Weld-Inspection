@@ -351,6 +351,9 @@ public partial class MainWindow : Window
         // A skid without photos can't be reported on, so start on one that can.
         skidList.SelectedItem = skidList.Items.Cast<ListBoxItem>().FirstOrDefault(i => i.IsEnabled);
 
+        var labelBox = new TextBox { Margin = new Thickness(0, 4, 0, 10) };
+        labelBox.SetResourceReference(StyleProperty, "FieldBox");
+
         var numberBox = new TextBox
         {
             Text = ReportBuilder.SuggestNumber(_settings.LastReportNo, DateTime.Today),
@@ -358,11 +361,29 @@ public partial class MainWindow : Window
         };
         numberBox.SetResourceReference(StyleProperty, "FieldBox");
 
+        // The file name is built from three parts; show what it will be as they are typed.
+        var nameText = Muted("", "TinyFontSize");
+        void ShowName() =>
+            nameText.Text = ReportBuilder.DocumentName(labelBox.Text.Trim(), numberBox.Text.Trim());
+        labelBox.TextChanged += (_, _) => ShowName();
+        numberBox.TextChanged += (_, _) => ShowName();
+        skidList.SelectionChanged += (_, _) =>
+        {
+            if (skidList.SelectedItem is ListBoxItem { Tag: ReportRequest picked })
+                labelBox.Text = ReportBuilder.ShortSkid(picked.UnitName);
+        };
+        if (skidList.SelectedItem is ListBoxItem { Tag: ReportRequest first })
+            labelBox.Text = ReportBuilder.ShortSkid(first.UnitName);
+        ShowName();
+
         var form = new StackPanel();
         form.Children.Add(Muted("Sklop (vse njegove fotografije gredo v poročilo)", "SmallFontSize"));
         form.Children.Add(skidList);
+        form.Children.Add(Muted("Oznaka sklopa v imenu datoteke", "SmallFontSize"));
+        form.Children.Add(labelBox);
         form.Children.Add(Muted("Številka poročila", "SmallFontSize"));
         form.Children.Add(numberBox);
+        form.Children.Add(nameText);
         form.Children.Add(Muted($"Predloga: {template}", "TinyFontSize"));
 
         var choice = await ShowDialogAsync("NOVO POROČILO", "Icon.FileText", false, 560, form,
@@ -372,13 +393,14 @@ public partial class MainWindow : Window
         if (skidList.SelectedItem is not ListBoxItem { Tag: ReportRequest request }) return;
         var number = numberBox.Text.Trim();
         if (number.Length == 0) return;
+        var skidLabel = labelBox.Text.Trim();
 
         _ = ShowDialogAsync("USTVARJAM POROČILO", "Icon.FileText", false, 460,
                             BodyText($"Žigosam fotografije in pripravljam dokument za sklop {request.UnitName} …"));
         ReportResult result;
         try
         {
-            result = await Task.Run(() => ReportBuilder.CreateAsync(template, request, number, DateTime.Today, CancellationToken.None));
+            result = await Task.Run(() => ReportBuilder.CreateAsync(template, request, number, skidLabel, DateTime.Today, CancellationToken.None));
         }
         catch (Exception ex)
         {

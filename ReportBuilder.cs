@@ -76,19 +76,34 @@ public static class ReportBuilder
         return $"VT {today:yyyy}-001";
     }
 
-    /// <summary>Named as the inspectors name theirs: "Weld Inspection Report HCL - VT 2026-133".</summary>
-    public static string DocumentName(string unitName, string number) =>
-        FolderConventions.SanitizeFolderName($"Weld Inspection Report {unitName} - {number}") + ".docx";
+    /// <summary>The name in three parts, as the inspectors write it:
+    /// "Weld Inspection Report" · the skid · the report number.</summary>
+    public const string DocumentTitle = "Weld Inspection Report";
 
-    public static string FolderFor(ReportRequest request, string number) =>
+    public static string DocumentName(string skidLabel, string number) =>
+        FolderConventions.SanitizeFolderName($"{DocumentTitle} {skidLabel} - {number}") + ".docx";
+
+    /// <summary>A short label for the skid, for the file and folder name: the unit without the
+    /// word that only says it is a skid ("HCL skid" → "HCL"). Anything else is kept as it is,
+    /// and the dialog lets it be corrected.</summary>
+    public static string ShortSkid(string unitName)
+    {
+        var words = unitName.Split(' ', StringSplitOptions.RemoveEmptyEntries).ToList();
+        string[] generic = { "skid", "station", "postaja", "unit", "sklop", "system", "sistem" };
+        while (words.Count > 1 && generic.Contains(words[^1], StringComparer.OrdinalIgnoreCase)) words.RemoveAt(words.Count - 1);
+        return words.Count == 0 ? unitName : string.Join(' ', words);
+    }
+
+    public static string FolderFor(ReportRequest request, string number, string skidLabel) =>
         Path.Combine(request.ProjectFolder, ReportsFolderName,
-                     FolderConventions.SanitizeFolderName($"{number} - {request.UnitName}"));
+                     FolderConventions.SanitizeFolderName($"{number} - {skidLabel}"));
 
     /// <summary>Stamps the skid's photos into a new report folder and fills the template.</summary>
     public static async Task<ReportResult> CreateAsync(string templatePath, ReportRequest request, string number,
-                                                       DateTime date, CancellationToken ct)
+                                                       string skidLabel, DateTime date, CancellationToken ct)
     {
-        var folder = FolderFor(request, number);
+        if (string.IsNullOrWhiteSpace(skidLabel)) skidLabel = ShortSkid(request.UnitName);
+        var folder = FolderFor(request, number, skidLabel);
         if (Directory.Exists(folder))
             throw new IOException($"mapa {folder} že obstaja; izberite drugo številko ali mapo najprej izbrišite");
         Directory.CreateDirectory(folder);
@@ -113,7 +128,7 @@ public static class ReportBuilder
             if (photos.Count > 0) groups.Add((iso, photos));
         }
 
-        var documentPath = Path.Combine(folder, DocumentName(request.UnitName, number));
+        var documentPath = Path.Combine(folder, DocumentName(skidLabel, number));
         File.Copy(templatePath, documentPath);
         var welds = groups.Sum(g => g.Photos.Select(p => p.WeldLabel).Distinct(StringComparer.OrdinalIgnoreCase).Count());
         Fill(documentPath, request, number, date, groups, welds);
