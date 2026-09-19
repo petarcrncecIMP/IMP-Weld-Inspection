@@ -267,7 +267,10 @@ be started by hand with a "Scan again" button.
    and the buttons to make the PDF (through Word), edit in Word or open the folder (§6).
 7. **Updates**: checked at every start; a newer release is offered in a dialog ("Posodobi" / "Pozneje")
    once the start-up card scan is done and no import or other dialog is on screen, and the header
-   button stays for later or for checking again by hand.
+   button stays for later or for checking again by hand. Updating shows a dialog with the
+   download's progress, then hands over without a gap: the single-instance lock is released,
+   the new copy starts, and the old window closes only once the new one is on screen. The
+   new copy then says "Posodobljeno na vX".
 8. **CommonData account** in the header: the signed-in user's name, or **Prijava**
    to sign in through the browser. After signing in the preview is rebuilt from
    the database.

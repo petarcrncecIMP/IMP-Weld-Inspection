@@ -53,7 +53,8 @@ public partial class App : Application
         ApplyTheme(settings.Theme == null ? UserSettings.WindowsUsesDarkTheme() : settings.Theme == "dark");
 
         // A folder on the command line is scanned instead of waiting for a card.
-        var window = new MainWindow(settings, e.Args.FirstOrDefault(Directory.Exists));
+        var window = new MainWindow(settings, e.Args.FirstOrDefault(Directory.Exists),
+                                    afterUpdate: e.Args.Contains(Updater.AfterUpdateArg));
         MainWindow = window;
         window.Show();
 
@@ -62,6 +63,15 @@ public partial class App : Application
         {
             while (_showEvent.WaitOne()) Dispatcher.BeginInvoke(new Action(window.BringToFront));
         }) { IsBackground = true, Name = "ShowListener" }.Start();
+    }
+
+    /// <summary>During an update: the new copy may start at once instead of waiting for this
+    /// one to be gone, so the old window can stay up until the new one shows.</summary>
+    public void ReleaseSingleInstance()
+    {
+        if (!_ownsMutex) return;
+        _mutex?.ReleaseMutex();
+        _ownsMutex = false;
     }
 
     public static void ApplyTheme(bool dark)

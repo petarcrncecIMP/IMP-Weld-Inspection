@@ -66,15 +66,22 @@ public static class Updater
 
     /// <summary>Downloads and swaps in the release, then starts it. On success the caller must
     /// shut down; on failure nothing has changed.</summary>
+    /// <summary>Downloads the release and puts it in place of the running exe. The caller then
+    /// starts it with StartNewCopy, once it is ready to hand over.</summary>
     public static async Task InstallAsync(Release release, IProgress<double>? progress, CancellationToken ct)
     {
         var exe = Environment.ProcessPath ?? throw new InvalidOperationException("pot do programa ni znana");
         await DownloadAndSwapAsync(release, exe, progress, ct);
-        Process.Start(new ProcessStartInfo(exe, AfterUpdateArg)
+    }
+
+    public static Process StartNewCopy()
+    {
+        var exe = Environment.ProcessPath ?? throw new InvalidOperationException("pot do programa ni znana");
+        return Process.Start(new ProcessStartInfo(exe, AfterUpdateArg)
         {
             UseShellExecute = false,
             WorkingDirectory = Path.GetDirectoryName(exe),
-        });
+        }) ?? throw new InvalidOperationException("nove različice ni bilo mogoče zagnati");
     }
 
     /// <summary>Downloads the release beside exe, checks it is complete, and swaps the files:

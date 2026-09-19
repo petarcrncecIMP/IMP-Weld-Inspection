@@ -33,11 +33,14 @@ public partial class MainWindow : Window
     private Updater.Release? _update;
     private bool _updating;
 
-    public MainWindow(UserSettings settings, string? startFolder)
+    private readonly bool _afterUpdate;
+
+    public MainWindow(UserSettings settings, string? startFolder, bool afterUpdate = false)
     {
         InitializeComponent();
         _settings = settings;
         _startFolder = startFolder;
+        _afterUpdate = afterUpdate;
         _cfg = AppConfig.Load(out var configError);
         if (configError != null) _banner["config"] = configError;
 
@@ -65,6 +68,7 @@ public partial class MainWindow : Window
         var version = Updater.IsDevBuild ? "razvojna različica" : $"v{Updater.CurrentVersion}";
         Title = $"IMP Weld Inspection {version}";
         VersionText.Text = version;
+        if (_afterUpdate) _ = ShowUpdatedAsync();
         BrandLabel.ToolTip = Title;
         _ = CheckForUpdateAtStartAsync();
 
@@ -308,17 +312,46 @@ public partial class MainWindow : Window
                                            ("update", "Posodobi", "PrimaryButton"));
         if (choice != "update") return;
 
+        // What happens is shown the whole way: download, then the restart. No buttons: the
+        // app is busy updating itself.
         _updating = true;
         UpdateButton.IsEnabled = false;
-        var progress = new Progress<double>(p => UpdateText.Text = $"Prenašam {p:P0}");
+        var status = BodyText($"Prenašam {release.Tag} …");
+        var bar = new ProgressBar { Maximum = 1, Margin = new Thickness(0, 6, 0, 10) };
+        bar.SetResourceReference(StyleProperty, "ThinProgress");
+        var panel = new StackPanel();
+        panel.Children.Add(status);
+        panel.Children.Add(bar);
+        panel.Children.Add(Muted("Ko je prenos končan, se aplikacija sama znova zažene. Počakajte nekaj sekund.", "SmallFontSize"));
+        _ = ShowDialogAsync("POSODABLJAM", "Icon.DownloadSimple", false, 420, panel);
+        var progress = new Progress<double>(p =>
+        {
+            bar.Value = p;
+            status.Text = $"Prenašam {release.Tag} … {p:P0}";
+        });
         try
         {
             await Updater.InstallAsync(release, progress, CancellationToken.None);
-            // The new copy is starting and waits for this one to close.
+
+            status.Text = $"Zaganjam {release.Tag} …";
+            bar.IsIndeterminate = true;
+            // Hand over: let the new copy start straight away, and keep this window up until
+            // its window is on screen, so the app never just vanishes.
+            ((App)Application.Current).ReleaseSingleInstance();
+            var newCopy = Updater.StartNewCopy();
+            if (!await WaitForWindowAsync(newCopy, TimeSpan.FromSeconds(45)))
+            {
+                CloseDialog(null);
+                await ShowDialogAsync("ZAGON NI USPEL", "Icon.WarningCircle", true, 420,
+                    BodyText($"{release.Tag} je nameščena, a se ni zagnala. Zaprite aplikacijo in jo zaženite znova."),
+                    ("ok", "V redu", "SecondaryButton"));
+                return;
+            }
             Application.Current.Shutdown();
         }
         catch (Exception ex)
         {
+            CloseDialog(null);
             _updating = false;
             UpdateButton.IsEnabled = true;
             UpdateText.Text = $"Posodobi na {release.Tag}";
@@ -327,6 +360,31 @@ public partial class MainWindow : Window
                                            "novo različico lahko prenesete tudi s strani GitHub."),
                                   ("ok", "V redu", "SecondaryButton"));
         }
+    }
+
+    /// <summary>True once the new copy has a window up; false if it quit or took too long.</summary>
+    private static async Task<bool> WaitForWindowAsync(Process process, TimeSpan timeout)
+    {
+        var until = DateTime.UtcNow + timeout;
+        while (DateTime.UtcNow < until)
+        {
+            process.Refresh();
+            if (process.HasExited) return false;
+            if (process.MainWindowHandle != IntPtr.Zero) return true;
+            await Task.Delay(250);
+        }
+        return false;
+    }
+
+    /// <summary>Straight after an update, say that it worked (once the start-up scan is done).</summary>
+    private async Task ShowUpdatedAsync()
+    {
+        for (var i = 0; i < 30 && (_busy || DialogOverlay.Visibility == Visibility.Visible); i++)
+            await Task.Delay(1000);
+        if (DialogOverlay.Visibility == Visibility.Visible) return;
+        await ShowDialogAsync("POSODOBLJENO", "Icon.CheckCircle", false, 380,
+                              BodyText($"Aplikacija je posodobljena na v{Updater.CurrentVersion}."),
+                              ("ok", "V redu", "PrimaryButton"));
     }
 
     // ─── Reports ─────────────────────────────────────────────────────────────
