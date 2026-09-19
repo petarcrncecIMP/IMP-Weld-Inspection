@@ -15,7 +15,8 @@ public sealed record ReportResult(string DocumentPath, string Folder, int Photos
 
 /// <summary>
 /// Fills a Word template and packs the stamped photos beside it:
-/// {project}\Poročila\{number} - {skid}\{number}.docx plus one stamped photo per file.
+/// {project}\Poročila\{number} - {skid}\ with the document and PDF at the top and the stamped
+/// photos in a subfolder per isometrija ({BomCode}\), grouped as in the annex.
 ///
 /// The template is an ordinary .docx that anyone can edit in Word; the app only replaces
 /// these tokens, so everything else stays exactly as the template has it:
@@ -121,12 +122,14 @@ public static class ReportBuilder
         foreach (var iso in request.Isos.OrderBy(i => i.BomCode, StringComparer.Ordinal))
         {
             var photos = new List<StampedPhoto>();
+            var isoFolder = Path.Combine(folder, FolderConventions.SanitizeFolderName(iso.BomCode));
             foreach (var item in PhotoItem.List(iso.Path).Where(p => !p.IsVideo))
             {
                 ct.ThrowIfCancellationRequested();
                 try
                 {
-                    photos.Add(await StampAsync(item, folder, ct));
+                    Directory.CreateDirectory(isoFolder);
+                    photos.Add(await StampAsync(item, isoFolder, ct));
                 }
                 catch (Exception ex) when (ex is not OperationCanceledException)
                 {

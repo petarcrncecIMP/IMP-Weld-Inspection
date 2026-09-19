@@ -32,6 +32,18 @@ public sealed class ReportEntry
     public string Summary =>
         $"{UnitName} · {MainWindow.Plural(Photos, "fotografija", "fotografiji", "fotografije", "fotografij")} · {Created:dd.MM.yyyy}";
 
+    private static int CountImages(string folder)
+    {
+        try
+        {
+            return Directory.EnumerateFiles(folder, "*", SearchOption.AllDirectories).Count(f => MediaFiles.IsImage(f));
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            return 0;
+        }
+    }
+
     public static ReportEntry? Create(string folder)
     {
         string[] files;
@@ -64,7 +76,8 @@ public sealed class ReportEntry
             Created = Directory.GetCreationTime(folder),
             DocumentModified = File.GetLastWriteTime(document),
             PdfModified = pdf == null ? null : File.GetLastWriteTime(pdf),
-            Photos = files.Count(f => MediaFiles.IsImage(f)),
+            // The stamped photos sit in a subfolder per isometrija (older reports: at the top).
+            Photos = CountImages(folder),
         };
     }
 }

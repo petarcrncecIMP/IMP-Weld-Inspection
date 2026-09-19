@@ -300,7 +300,9 @@ that skid.
   as the inspectors write it — `Weld Inspection Report` · the skid · the number, e.g.
   `Weld Inspection Report HCL - VT 2026-133.docx`. The skid part is derived from the unit name
   (dropping a trailing word that only says "skid", so "HCL skid" → "HCL") and can be corrected
-  in the dialog, which shows the resulting file name as it is typed. Beside it go the **stamped**
+  in the dialog, which shows the resulting file name as it is typed. The document and its PDF
+  sit at the top of the folder; the **stamped** photos go in a subfolder per isometrija
+  (`{BomCode}\`), grouped as in the annex. These are the **stamped**
   photos beside it, so the whole folder can be zipped and sent. An existing folder is never
   overwritten: the same number twice is refused.
 - **Photos:** every photo of every isometrija in the skid, videos excluded, stamped as in §4,
