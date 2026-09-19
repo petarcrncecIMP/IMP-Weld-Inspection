@@ -40,6 +40,9 @@ public partial class ViewerView : UserControl
     /// <summary>Folder to select on the next refresh, when jumping here from the import table.</summary>
     public string? PendingFolder { get; set; }
 
+    /// <summary>Asks the window to make a report; it owns the dialogs.</summary>
+    public event Func<ReportRequest, Task>? ReportRequested;
+
     public ViewerView()
     {
         InitializeComponent();
@@ -231,6 +234,11 @@ public partial class ViewerView : UserControl
         IsoTitle.Text = iso.FolderName;
         IsoSubtitle.Text = iso.UnitName;
         IsoHeader.Visibility = Visibility.Visible;
+        var canReport = !string.Equals(iso.ProjectName, ServerIndex.UnresolvedProject, StringComparison.Ordinal);
+        ReportButton.IsEnabled = canReport;
+        ReportButton.ToolTip = canReport
+            ? $"Poročilo za sklop {iso.UnitName} (vse fotografije sklopa)"
+            : "Nerazvrščene izometrije nimajo sklopa, zato poročila ni mogoče narediti.";
         PhotoList.ItemsSource = null;
         _photoView = null;
         ClearPreview();
@@ -428,6 +436,28 @@ public partial class ViewerView : UserControl
             Clipboard.SetFileDropList(new StringCollection { item.Path });
             Status("Kopirano. Prilepite jo v e-pošto, mapo ali poročilo.");
         });
+    }
+
+    /// <summary>One report per skid: this isometrija's unit, with every isometrija in it.</summary>
+    private async void OnReportClick(object sender, RoutedEventArgs e)
+    {
+        if (_currentIso is not { } iso || ReportRequested is not { } handler) return;
+        if (string.Equals(iso.ProjectName, ServerIndex.UnresolvedProject, StringComparison.Ordinal)) return;
+        if (Path.GetDirectoryName(Path.GetDirectoryName(iso.Path)) is not { } projectFolder) return;
+
+        var isos = _allIsos
+            .Where(i => string.Equals(i.ProjectName, iso.ProjectName, StringComparison.OrdinalIgnoreCase) &&
+                        string.Equals(i.UnitName, iso.UnitName, StringComparison.OrdinalIgnoreCase))
+            .ToList();
+        ReportButton.IsEnabled = false;
+        try
+        {
+            await handler(new ReportRequest(projectFolder, iso.ProjectName, iso.UnitName, isos));
+        }
+        finally
+        {
+            ReportButton.IsEnabled = true;
+        }
     }
 
     private void OnOpenIsoFolderClick(object sender, RoutedEventArgs e)

@@ -34,6 +34,8 @@
     <Using Include="System.Net.Http" />
   </ItemGroup>
   <ItemGroup>
+    <!-- Reports: fills the Word template and puts the stamped photos in. -->
+    <PackageReference Include="DocumentFormat.OpenXml" Version="3.3.0" />
     <PackageReference Include="MetadataExtractor" Version="2.8.1" />
     <!-- Same MSAL line the CommonData Client package pins for net10. -->
     <PackageReference Include="Microsoft.Identity.Client" Version="4.73.1" />

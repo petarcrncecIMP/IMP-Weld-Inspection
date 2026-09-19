@@ -16,6 +16,9 @@ public sealed class UserSettings
     /// <summary>Project folder last picked in Pregled.</summary>
     public string? ViewerProject { get; set; }
 
+    /// <summary>Number of the last report made on this PC; the next one is suggested from it.</summary>
+    public string? LastReportNo { get; set; }
+
     private static string FilePath => Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
         "IMP", "IMPWeldPhotos", "settings.json");

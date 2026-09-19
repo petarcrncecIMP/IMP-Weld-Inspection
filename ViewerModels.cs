@@ -106,9 +106,14 @@ public static class ServerIndex
                 foreach (var iso in Dirs(project)) list.Add(IsoEntry.Create(iso, UnresolvedProject, "brez sklopa"));
                 continue;
             }
+            // Other "_" folders at the root are the app's own (_Predloge: report templates).
+            if (projectName.StartsWith('_')) continue;
             foreach (var unit in Dirs(project))
+            {
+                if (Path.GetFileName(unit).Equals(ReportBuilder.ReportsFolderName, StringComparison.OrdinalIgnoreCase)) continue;
                 foreach (var iso in Dirs(unit))
                     list.Add(IsoEntry.Create(iso, projectName, Path.GetFileName(unit)));
+            }
         }
 
         var ordered = list

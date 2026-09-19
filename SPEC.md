@@ -268,7 +268,40 @@ SHA-256, result) to `%LOCALAPPDATA%\IMP\IMPWeldPhotos\logs\`.
 
 ---
 
-## 6. Edge cases to handle
+## 6. Reports (Word)
+
+One report per **skid** (unit), made from the Pregled page: the **Poročilo** button asks for
+the report number and builds the document with every photo of that skid.
+
+- **Template:** the project's own `{project}\Poročila\Predloga.docx` if it exists, else the
+  shared `U:\100_Identi\140_Zvari\_Predloge\Weld Inspection Report.docx`. It is an ordinary
+  Word file anyone can edit (the customer's logo, texts and standards live there); the app
+  only replaces these tokens and leaves everything else alone:
+  | Token | Filled with |
+  |---|---|
+  | `{{PorociloSt}}` | report number, also in the header |
+  | `{{Sklop}}` | skid (unit) name |
+  | `{{Projekt}}` | project folder name |
+  | `{{SteviloZvarov}}` | number of welds photographed in the skid |
+  | `{{Datum}}` | today, `dd.MM.yyyy` |
+  | `{{Isometrija}}` | BOM code; the whole paragraph repeats once per isometrija |
+  | `{{IsometrijaNaziv}}` | `{BomCode} - {name}`, same repetition |
+  | `{{Fotografije}}` | that isometrija's photos; on its own, every photo of the skid |
+  `templates\Weld Inspection Report.docx` in this repo is the template made from the
+  customer's own VT 2026-133 report.
+- **Output:** `{project}\Poročila\{number} - {skid}\` with `{number}.docx` and the **stamped**
+  photos beside it, so the whole folder can be zipped and sent. An existing folder is never
+  overwritten: the same number twice is refused.
+- **Photos:** every photo of every isometrija in the skid, videos excluded, stamped as in §4,
+  two per row in a 6.5 × 4.9 cm box, the file name as the caption, grouped by isometrija with
+  the heading kept on the page with its photos. The photos on the share stay unstamped.
+- **Report number:** typed in, suggested from the last one used on that PC (`settings.json`),
+  raising its final digits by one; a new year restarts at `001`.
+- The `Poročila` and `_Predloge` folders are not isometrije, so the viewer skips them.
+
+---
+
+## 7. Edge cases to handle
 
 - Card removed mid-import → stop cleanly, report what completed, leave no `.part`
   files at the destination.
@@ -284,7 +317,7 @@ SHA-256, result) to `%LOCALAPPDATA%\IMP\IMPWeldPhotos\logs\`.
 
 ---
 
-## 7. Reference files
+## 8. Reference files
 
 | What | Where |
 |---|---|

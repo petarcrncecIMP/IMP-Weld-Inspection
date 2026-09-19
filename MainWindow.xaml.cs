@@ -273,6 +273,111 @@ public partial class MainWindow : Window
         }
     }
 
+    // ─── Reports ─────────────────────────────────────────────────────────────
+
+    /// <summary>A report for one skid: ask for the number, then stamp its photos into a new
+    /// folder under the project and fill the Word template with them.</summary>
+    private async Task OnReportRequestedAsync(ReportRequest request)
+    {
+        var template = ReportBuilder.FindTemplate(_cfg.DestinationRoot, request.ProjectFolder);
+        if (template == null)
+        {
+            await ShowDialogAsync("PREDLOGE NI", "Icon.WarningCircle", true, 560,
+                BodyText("Poročilo nastane iz predloge Word, ki je ni. " +
+                         ReportBuilder.TemplateHint(_cfg.DestinationRoot, request.ProjectFolder)),
+                ("ok", "V redu", "SecondaryButton"));
+            return;
+        }
+
+        var photos = await Task.Run(() => request.Isos.Sum(i => PhotoItem.List(i.Path).Count(p => !p.IsVideo)));
+        if (photos == 0)
+        {
+            await ShowDialogAsync("NI FOTOGRAFIJ", "Icon.WarningCircle", true, 460,
+                BodyText($"Sklop {request.UnitName} nima uvoženih fotografij."), ("ok", "V redu", "SecondaryButton"));
+            return;
+        }
+
+        var numberBox = new TextBox
+        {
+            Text = ReportBuilder.SuggestNumber(_settings.LastReportNo, DateTime.Today),
+            Margin = new Thickness(0, 4, 0, 10),
+        };
+        numberBox.SetResourceReference(StyleProperty, "FieldBox");
+
+        var form = new StackPanel();
+        form.Children.Add(BodyText(
+            $"Sklop {request.UnitName} · " +
+            $"{Plural(request.Isos.Count, "izometrija", "izometriji", "izometrije", "izometrij")} · " +
+            $"{Plural(photos, "fotografija", "fotografiji", "fotografije", "fotografij")}. " +
+            "Fotografije se ožigosajo in shranijo poleg poročila."));
+        form.Children.Add(Muted("Številka poročila", "SmallFontSize"));
+        form.Children.Add(numberBox);
+        form.Children.Add(Muted($"Predloga: {template}", "TinyFontSize"));
+
+        var choice = await ShowDialogAsync("NOVO POROČILO", "Icon.FileText", false, 560, form,
+                                           ("cancel", "Prekliči", "SecondaryButton"),
+                                           ("create", "Ustvari", "PrimaryButton"));
+        if (choice != "create") return;
+        var number = numberBox.Text.Trim();
+        if (number.Length == 0) return;
+
+        _ = ShowDialogAsync("USTVARJAM POROČILO", "Icon.FileText", false, 460,
+                            BodyText($"Žigosam fotografije in pripravljam dokument za sklop {request.UnitName} …"));
+        ReportResult result;
+        try
+        {
+            result = await Task.Run(() => ReportBuilder.CreateAsync(template, request, number, DateTime.Today, CancellationToken.None));
+        }
+        catch (Exception ex)
+        {
+            CloseDialog(null);
+            await ShowDialogAsync("POROČILA NI MOGOČE USTVARITI", "Icon.XCircle", true, 560, BodyText(ex.Message),
+                                  ("ok", "V redu", "SecondaryButton"));
+            return;
+        }
+        CloseDialog(null);
+
+        _settings.LastReportNo = number;
+        _settings.Save();
+
+        var done = new StackPanel();
+        done.Children.Add(BodyText(
+            $"{Path.GetFileName(result.DocumentPath)} · " +
+            $"{Plural(result.Photos, "fotografija", "fotografiji", "fotografije", "fotografij")} · " +
+            $"{Plural(result.Isometrije, "izometrija", "izometriji", "izometrije", "izometrij")}."));
+        done.Children.Add(Muted(result.Folder, "TinyFontSize"));
+        foreach (var problem in result.Problems)
+            done.Children.Add(Line("Icon.WarningCircle", "WarningBrush", problem));
+
+        var pick = await ShowDialogAsync("POROČILO USTVARJENO", "Icon.CheckCircle", false, 600, done,
+                                         ("close", "Zapri", "SecondaryButton"),
+                                         ("folder", "Odpri mapo", "SecondaryButton"),
+                                         ("open", "Odpri poročilo", "PrimaryButton"));
+        if (pick == "open") Run(() => Process.Start(new ProcessStartInfo(result.DocumentPath) { UseShellExecute = true }));
+        else if (pick == "folder") OpenFolder(new[] { result.Folder });
+    }
+
+    private TextBlock Muted(string text, string fontSizeKey)
+    {
+        var block = new TextBlock { Text = text, TextWrapping = TextWrapping.Wrap };
+        block.SetResourceReference(StyleProperty, "Muted");
+        block.SetResourceReference(TextBlock.FontSizeProperty, fontSizeKey);
+        return block;
+    }
+
+    /// <summary>Starting Explorer or Word can fail; that is worth a line, not a crash.</summary>
+    private void Run(Action action)
+    {
+        try
+        {
+            action();
+        }
+        catch (Exception ex)
+        {
+            SetBanner("error", ex.Message);
+        }
+    }
+
     // ─── Pages ───────────────────────────────────────────────────────────────
 
     private async void OnTabChanged(object sender, RoutedEventArgs e)
@@ -289,6 +394,7 @@ public partial class MainWindow : Window
         if (!_viewerReady)
         {
             ViewerPage.Initialize(_cfg, _settings);
+            ViewerPage.ReportRequested += OnReportRequestedAsync;
             _viewerReady = true;
         }
         // Every visit re-reads the share, so photos imported meanwhile are there.
