@@ -15,6 +15,7 @@ public partial class ReportsView : UserControl
     private AppConfig _cfg = null!;
     private UserSettings _settings = null!;
     private List<ProjectEntry> _projects = new();
+    private List<IsoEntry> _allIsos = new();
     private List<ReportEntry> _reports = new();
     private ReportEntry? _current;
     private CancellationTokenSource? _previewCts;
@@ -24,6 +25,9 @@ public partial class ReportsView : UserControl
 
     /// <summary>Report folder to select on the next refresh, right after making one.</summary>
     public string? PendingFolder { get; set; }
+
+    /// <summary>Asks the window to make a report for one of these skids; it owns the dialogs.</summary>
+    public event Func<IReadOnlyList<ReportRequest>, Task>? NewReportRequested;
 
     public ReportsView()
     {
@@ -43,6 +47,7 @@ public partial class ReportsView : UserControl
     {
         var root = _cfg.DestinationRoot;
         var (isos, _) = await Task.Run(() => ServerIndex.Load(root));
+        _allIsos = isos;
         _projects = ProjectEntry.FromIsos(isos).Where(p => p.Code.Length > 0).ToList();
 
         var wanted = PendingFolder;
@@ -78,6 +83,7 @@ public partial class ReportsView : UserControl
         ReportList.ItemsSource = _reports;
         _settingSource = false;
 
+        NewReportButton.IsEnabled = _project != null;
         ReportCountText.Text = _reports.Count == 0
             ? "Ni poročil"
             : MainWindow.Plural(_reports.Count, "poročilo", "poročili", "poročila", "poročil");
@@ -96,7 +102,7 @@ public partial class ReportsView : UserControl
         _current = null;
         ShowEmpty(_reports.Count == 0 ? "NI POROČIL" : "IZBERITE POROČILO",
                   _reports.Count == 0
-                      ? "Poročila nastanejo na strani Pregled z gumbom Poročilo."
+                      ? "Novo poročilo naredite z gumbom Novo poročilo."
                       : "Na levi izberite poročilo; prikaže se njegov PDF.");
     }
 
@@ -165,6 +171,29 @@ public partial class ReportsView : UserControl
     }
 
     // ─── Actions ─────────────────────────────────────────────────────────────
+
+    /// <summary>One report per skid, so the window is handed this project's skids to choose from.</summary>
+    private async void OnNewReportClick(object sender, RoutedEventArgs e)
+    {
+        if (NewReportRequested is not { } handler || _project is not { } project) return;
+        var projectFolder = Path.Combine(_cfg.DestinationRoot, project);
+        var skids = _allIsos
+            .Where(i => string.Equals(i.ProjectName, project, StringComparison.OrdinalIgnoreCase))
+            .GroupBy(i => i.UnitName, StringComparer.OrdinalIgnoreCase)
+            .OrderBy(g => g.Key, StringComparer.OrdinalIgnoreCase)
+            .Select(g => new ReportRequest(projectFolder, project, g.Key, g.ToList()))
+            .ToList();
+
+        NewReportButton.IsEnabled = false;
+        try
+        {
+            await handler(skids);
+        }
+        finally
+        {
+            NewReportButton.IsEnabled = true;
+        }
+    }
 
     private async void OnPdfClick(object sender, RoutedEventArgs e)
     {

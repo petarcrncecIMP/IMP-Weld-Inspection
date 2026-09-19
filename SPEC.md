@@ -250,7 +250,8 @@ be started by hand with a "Scan again" button.
 3. **Summary:** copied, skipped as duplicate, unresolved, failed (with the
    reason). Plus a button to open the destination folder in Explorer.
 4. After success: the **Clear card** action from §4, with its own confirmation.
-5. **Pregled (viewer)**, a second page switched from the header: a project picker
+5. **Pregled (viewer)**, a second page switched from the header, for browsing photos only
+   (reports live on their own page): a project picker
    (Kosovnice's typeable combobox: matches the code with or without dashes, or
    the name; remembered in settings.json while the project still exists), that
    project's isometrije grouped by unit and searchable, its photos as thumbnails
@@ -273,8 +274,9 @@ SHA-256, result) to `%LOCALAPPDATA%\IMP\IMPWeldPhotos\logs\`.
 
 ## 6. Reports (Word)
 
-One report per **skid** (unit), made from the Pregled page: the **Poročilo** button asks for
-the report number and builds the document with every photo of that skid.
+One report per **skid** (unit), made on the Poročila page: **Novo poročilo** asks which skid
+of the picked project and for the report number, then builds the document with every photo of
+that skid.
 
 - **Template:** the project's own `{project}\Poročila\Predloga.docx` if it exists, else the
   shared `U:\100_Identi\140_Zvari\_Predloge\Weld Inspection Report.docx`. It is an ordinary
@@ -319,7 +321,8 @@ A third page beside Uvoz and Pregled, for finished reports:
   document. Without Word installed, the page says so and the report can still be opened.
 - The PDF is shown page by page in the app (PDFium, read into memory so nothing on the share
   stays open), and the report can be opened in Word for editing or shown in Explorer.
-- Making a report from Pregled lands here, on the new report.
+- **Novo poročilo** lives here too: pick the skid (with its photo count; a skid without
+  photos can't be picked) and the number, and the new report is selected when it's done.
 
 ---
 

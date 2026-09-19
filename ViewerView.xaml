@@ -86,14 +86,6 @@
                         <TextBlock Text="Odpri mapo" />
                     </StackPanel>
                 </Button>
-                <!-- One report per skid: every photo of this isometrija's unit. -->
-                <Button x:Name="ReportButton" DockPanel.Dock="Right" Style="{StaticResource SecondaryButton}"
-                        VerticalAlignment="Center" Margin="12,0,0,0" Click="OnReportClick">
-                    <StackPanel Orientation="Horizontal">
-                        <local:Glyph Data="{StaticResource Icon.FileText}" Margin="0,0,8,0" />
-                        <TextBlock Text="Poročilo" />
-                    </StackPanel>
-                </Button>
                 <StackPanel VerticalAlignment="Center">
                     <TextBlock x:Name="IsoTitle" FontSize="16" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
                     <TextBlock x:Name="IsoSubtitle" Style="{StaticResource Muted}" TextTrimming="CharacterEllipsis" />

@@ -308,27 +308,48 @@ public partial class MainWindow : Window
 
     // ─── Reports ─────────────────────────────────────────────────────────────
 
-    /// <summary>A report for one skid: ask for the number, then stamp its photos into a new
-    /// folder under the project and fill the Word template with them.</summary>
-    private async Task OnReportRequestedAsync(ReportRequest request)
+    /// <summary>A report for one skid: pick the skid and the number, then stamp its photos
+    /// into a new folder under the project and fill the Word template with them.</summary>
+    private async Task OnNewReportAsync(IReadOnlyList<ReportRequest> skids)
     {
-        var template = ReportBuilder.FindTemplate(_cfg.DestinationRoot, request.ProjectFolder);
-        if (template == null)
+        if (skids.Count == 0)
         {
-            await ShowDialogAsync("PREDLOGE NI", "Icon.WarningCircle", true, 560,
-                BodyText("Poročilo nastane iz predloge Word, ki je ni. " +
-                         ReportBuilder.TemplateHint(_cfg.DestinationRoot, request.ProjectFolder)),
+            await ShowDialogAsync("NI SKLOPOV", "Icon.WarningCircle", true, 460,
+                BodyText("V tem projektu še ni uvoženih fotografij, zato ni česa poročati."),
                 ("ok", "V redu", "SecondaryButton"));
             return;
         }
 
-        var photos = await Task.Run(() => request.Isos.Sum(i => PhotoItem.List(i.Path).Count(p => !p.IsVideo)));
-        if (photos == 0)
+        var template = ReportBuilder.FindTemplate(_cfg.DestinationRoot, skids[0].ProjectFolder);
+        if (template == null)
         {
-            await ShowDialogAsync("NI FOTOGRAFIJ", "Icon.WarningCircle", true, 460,
-                BodyText($"Sklop {request.UnitName} nima uvoženih fotografij."), ("ok", "V redu", "SecondaryButton"));
+            await ShowDialogAsync("PREDLOGE NI", "Icon.WarningCircle", true, 560,
+                BodyText("Poročilo nastane iz predloge Word, ki je ni. " +
+                         ReportBuilder.TemplateHint(_cfg.DestinationRoot, skids[0].ProjectFolder)),
+                ("ok", "V redu", "SecondaryButton"));
             return;
         }
+
+        var photos = await Task.Run(() => skids.ToDictionary(
+            s => s.UnitName,
+            s => s.Isos.Sum(i => PhotoItem.List(i.Path).Count(p => !p.IsVideo)),
+            StringComparer.OrdinalIgnoreCase));
+
+        var skidList = new ListBox { MaxHeight = 190, Margin = new Thickness(0, 4, 0, 12) };
+        skidList.SetResourceReference(StyleProperty, "PlainList");
+        foreach (var skid in skids)
+        {
+            var count = photos[skid.UnitName];
+            skidList.Items.Add(new ListBoxItem
+            {
+                Content = $"{skid.UnitName}  ·  {Plural(count, "fotografija", "fotografiji", "fotografije", "fotografij")}",
+                Tag = skid,
+                IsEnabled = count > 0,
+                Padding = new Thickness(8, 6, 8, 6),
+            });
+        }
+        // A skid without photos can't be reported on, so start on one that can.
+        skidList.SelectedItem = skidList.Items.Cast<ListBoxItem>().FirstOrDefault(i => i.IsEnabled);
 
         var numberBox = new TextBox
         {
@@ -338,11 +359,8 @@ public partial class MainWindow : Window
         numberBox.SetResourceReference(StyleProperty, "FieldBox");
 
         var form = new StackPanel();
-        form.Children.Add(BodyText(
-            $"Sklop {request.UnitName} · " +
-            $"{Plural(request.Isos.Count, "izometrija", "izometriji", "izometrije", "izometrij")} · " +
-            $"{Plural(photos, "fotografija", "fotografiji", "fotografije", "fotografij")}. " +
-            "Fotografije se ožigosajo in shranijo poleg poročila."));
+        form.Children.Add(Muted("Sklop (vse njegove fotografije gredo v poročilo)", "SmallFontSize"));
+        form.Children.Add(skidList);
         form.Children.Add(Muted("Številka poročila", "SmallFontSize"));
         form.Children.Add(numberBox);
         form.Children.Add(Muted($"Predloga: {template}", "TinyFontSize"));
@@ -351,6 +369,7 @@ public partial class MainWindow : Window
                                            ("cancel", "Prekliči", "SecondaryButton"),
                                            ("create", "Ustvari", "PrimaryButton"));
         if (choice != "create") return;
+        if (skidList.SelectedItem is not ListBoxItem { Tag: ReportRequest request }) return;
         var number = numberBox.Text.Trim();
         if (number.Length == 0) return;
 
@@ -373,6 +392,10 @@ public partial class MainWindow : Window
         _settings.LastReportNo = number;
         _settings.Save();
 
+        // Show it straight away, ready for its PDF.
+        ReportsPage.PendingFolder = result.Folder;
+        await ReportsPage.RefreshAsync();
+
         var done = new StackPanel();
         done.Children.Add(BodyText(
             $"{Path.GetFileName(result.DocumentPath)} · " +
@@ -385,13 +408,9 @@ public partial class MainWindow : Window
         var pick = await ShowDialogAsync("POROČILO USTVARJENO", "Icon.CheckCircle", false, 600, done,
                                          ("close", "Zapri", "SecondaryButton"),
                                          ("folder", "Odpri mapo", "SecondaryButton"),
-                                         ("open", "Odpri poročilo", "PrimaryButton"));
+                                         ("open", "Odpri v Wordu", "PrimaryButton"));
         if (pick == "open") Run(() => Process.Start(new ProcessStartInfo(result.DocumentPath) { UseShellExecute = true }));
         else if (pick == "folder") OpenFolder(new[] { result.Folder });
-
-        // Land on the new report, where it can be turned into a PDF and read.
-        ReportsPage.PendingFolder = result.Folder;
-        ReportsTab.IsChecked = true;
     }
 
     private TextBlock Muted(string text, string fontSizeKey)
@@ -435,7 +454,6 @@ public partial class MainWindow : Window
             if (!_viewerReady)
             {
                 ViewerPage.Initialize(_cfg, _settings);
-                ViewerPage.ReportRequested += OnReportRequestedAsync;
                 _viewerReady = true;
             }
             await ViewerPage.RefreshAsync();
@@ -445,6 +463,7 @@ public partial class MainWindow : Window
             if (!_reportsReady)
             {
                 ReportsPage.Initialize(_cfg, _settings);
+                ReportsPage.NewReportRequested += OnNewReportAsync;
                 _reportsReady = true;
             }
             await ReportsPage.RefreshAsync();

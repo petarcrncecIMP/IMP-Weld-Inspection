@@ -13,6 +13,14 @@
         <Border Grid.Column="0" Background="{DynamicResource SurfaceBrush}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="0,0,1,0">
             <DockPanel>
                 <local:ProjectPicker x:Name="ProjectBox" DockPanel.Dock="Top" Margin="12,12,12,8" />
+                <Button x:Name="NewReportButton" DockPanel.Dock="Top" Style="{StaticResource PrimaryButton}"
+                        Margin="12,0,12,8" HorizontalContentAlignment="Center" Click="OnNewReportClick"
+                        ToolTip="Novo poročilo za enega od sklopov tega projekta">
+                    <StackPanel Orientation="Horizontal">
+                        <local:Glyph Data="{StaticResource Icon.FileText}" Margin="0,0,8,0" />
+                        <TextBlock Text="Novo poročilo" />
+                    </StackPanel>
+                </Button>
                 <TextBlock x:Name="ReportCountText" DockPanel.Dock="Bottom" Style="{StaticResource Muted}" Margin="12,6,12,8"
                            TextTrimming="CharacterEllipsis" />
                 <ListBox x:Name="ReportList" Style="{StaticResource PlainList}" SelectionChanged="OnReportSelected"
@@ -92,7 +100,7 @@
             <StackPanel x:Name="CenterEmpty" Grid.Row="1" VerticalAlignment="Center" HorizontalAlignment="Center" MaxWidth="460">
                 <TextBlock x:Name="EmptyTitle" Style="{StaticResource Heading}" HorizontalAlignment="Center" Text="IZBERITE POROČILO" />
                 <TextBlock x:Name="EmptyText" Style="{StaticResource Muted}" TextWrapping="Wrap" TextAlignment="Center" Margin="0,8,0,0"
-                           Text="Poročila nastanejo na strani Pregled z gumbom Poročilo." />
+                           Text="Novo poročilo naredite z gumbom Novo poročilo." />
                 <Button x:Name="EmptyPdfButton" Style="{StaticResource PrimaryButton}" HorizontalAlignment="Center" Margin="0,16,0,0"
                         Visibility="Collapsed" Click="OnPdfClick" Content="Ustvari PDF" />
             </StackPanel>
