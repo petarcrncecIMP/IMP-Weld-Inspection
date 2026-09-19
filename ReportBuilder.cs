@@ -18,8 +18,10 @@ public sealed record ReportResult(string DocumentPath, string Folder, int Photos
 /// {project}\Poročila\{number} - {skid}\ with the document and PDF at the top and the stamped
 /// photos in a subfolder per isometrija ({BomCode}\), grouped as in the annex.
 ///
-/// The template is an ordinary .docx that anyone can edit in Word; the app only replaces
-/// these tokens, so everything else stays exactly as the template has it:
+/// The template is built into the app (templates\Weld Inspection Report.docx, made from the
+/// customer's VT 2026-133 report); a project can override it with its own
+/// Poročila\Predloga.docx, an ordinary Word file. The app only replaces these tokens, so
+/// everything else stays exactly as the template has it:
 ///   {{PorociloSt}}      report number          {{Projekt}}   project folder name
 ///   {{Sklop}}           skid (unit) name       {{Datum}}     today, dd.MM.yyyy
 ///   {{SteviloZvarov}}   number of welds
@@ -32,7 +34,6 @@ public sealed record ReportResult(string DocumentPath, string Folder, int Photos
 public static class ReportBuilder
 {
     public const string ReportsFolderName = "Poročila";
-    public const string TemplatesFolderName = "_Predloge";
     public const string ProjectTemplateName = "Predloga.docx";
     public const string DefaultTemplateName = "Weld Inspection Report.docx";
 
@@ -45,18 +46,18 @@ public static class ReportBuilder
 
     private sealed record StampedPhoto(string Name, string Path, string Extension, int Width, int Height, string WeldLabel);
 
-    /// <summary>The project's own template, else the shared one, else null.</summary>
-    public static string? FindTemplate(string destinationRoot, string projectFolder)
+    private const string BuiltInTemplateResource = "WeldInspectionReport.docx";
+
+    /// <summary>The project's own template, or null for the one built into the app.</summary>
+    public static string? FindTemplate(string projectFolder)
     {
         var own = Path.Combine(projectFolder, ReportsFolderName, ProjectTemplateName);
-        if (File.Exists(own)) return own;
-        var shared = Path.Combine(destinationRoot, TemplatesFolderName, DefaultTemplateName);
-        return File.Exists(shared) ? shared : null;
+        return File.Exists(own) ? own : null;
     }
 
-    public static string TemplateHint(string destinationRoot, string projectFolder) =>
-        $"Predlogo postavite v {Path.Combine(projectFolder, ReportsFolderName, ProjectTemplateName)} " +
-        $"(za ta projekt) ali v {Path.Combine(destinationRoot, TemplatesFolderName, DefaultTemplateName)} (za vse projekte).";
+    /// <summary>For the dialog: which template a report will be made from.</summary>
+    public static string DescribeTemplate(string? templatePath) =>
+        templatePath ?? $"vgrajena (projekt nima svoje {Path.Combine(ReportsFolderName, ProjectTemplateName)})";
 
     /// <summary>The last number with its final digits raised by one; a new year starts at 1.</summary>
     public static string SuggestNumber(string? last, DateTime today)
@@ -108,7 +109,8 @@ public static class ReportBuilder
                      FolderConventions.SanitizeFolderName($"{number} - {skidLabel}"));
 
     /// <summary>Stamps the skid's photos into a new report folder and fills the template.</summary>
-    public static async Task<ReportResult> CreateAsync(string templatePath, ReportRequest request, string number,
+    /// <summary>templatePath null: the template built into the app.</summary>
+    public static async Task<ReportResult> CreateAsync(string? templatePath, ReportRequest request, string number,
                                                        string skidLabel, DateTime date, CancellationToken ct)
     {
         if (string.IsNullOrWhiteSpace(skidLabel)) skidLabel = ShortSkid(request.UnitName);
@@ -140,7 +142,17 @@ public static class ReportBuilder
         }
 
         var documentPath = Path.Combine(folder, DocumentName(skidLabel, number));
-        File.Copy(templatePath, documentPath);
+        if (templatePath != null)
+        {
+            File.Copy(templatePath, documentPath);
+        }
+        else
+        {
+            await using var from = typeof(ReportBuilder).Assembly.GetManifestResourceStream(BuiltInTemplateResource)
+                                   ?? throw new IOException("vgrajene predloge ni v programu");
+            await using var to = File.Create(documentPath);
+            await from.CopyToAsync(to, ct);
+        }
         var welds = groups.Sum(g => g.Photos.Select(p => p.WeldLabel).Distinct(StringComparer.OrdinalIgnoreCase).Count());
         Fill(documentPath, request, number, date, groups, welds);
 

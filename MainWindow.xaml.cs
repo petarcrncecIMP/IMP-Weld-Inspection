@@ -401,15 +401,8 @@ public partial class MainWindow : Window
             return;
         }
 
-        var template = ReportBuilder.FindTemplate(_cfg.DestinationRoot, skids[0].ProjectFolder);
-        if (template == null)
-        {
-            await ShowDialogAsync("PREDLOGE NI", "Icon.WarningCircle", true, 560,
-                BodyText("Poročilo nastane iz predloge Word, ki je ni. " +
-                         ReportBuilder.TemplateHint(_cfg.DestinationRoot, skids[0].ProjectFolder)),
-                ("ok", "V redu", "SecondaryButton"));
-            return;
-        }
+        // The project's own Poročila\Predloga.docx if it has one, else the built-in template.
+        var template = ReportBuilder.FindTemplate(skids[0].ProjectFolder);
 
         var photos = await Task.Run(() => skids.ToDictionary(
             s => s.UnitName,
@@ -494,7 +487,7 @@ public partial class MainWindow : Window
         form.Children.Add(Muted("Številka poročila", "SmallFontSize"));
         form.Children.Add(numberBox);
         form.Children.Add(nameText);
-        form.Children.Add(Muted($"Predloga: {template}", "TinyFontSize"));
+        form.Children.Add(Muted($"Predloga: {ReportBuilder.DescribeTemplate(template)}", "TinyFontSize"));
 
         var choice = await ShowDialogAsync("NOVO POROČILO", "Icon.FileText", false, 560, form,
                                            ("cancel", "Prekliči", "SecondaryButton"),
@@ -585,7 +578,7 @@ public partial class MainWindow : Window
 
     /// <summary>A report for every skid, one after another, then an offer to make their PDFs.
     /// A skid that fails (its number already taken, say) doesn't stop the rest.</summary>
-    private async Task CreateAllReportsAsync(string template, IReadOnlyList<ReportRequest> skids, IReadOnlyList<string> numbers)
+    private async Task CreateAllReportsAsync(string? template, IReadOnlyList<ReportRequest> skids, IReadOnlyList<string> numbers)
     {
         var status = BodyText("");
         _ = ShowDialogAsync("USTVARJAM POROČILA", "Icon.FileText", false, 460, status);

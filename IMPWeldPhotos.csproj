@@ -59,6 +59,11 @@
     <None Include="Assets\Fonts\OFL.txt" />
   </ItemGroup>
   <ItemGroup>
+    <!-- The report template, built in: a project can still override it with its own
+         Poročila\Predloga.docx on the share. -->
+    <EmbeddedResource Include="templates\Weld Inspection Report.docx" LogicalName="WeldInspectionReport.docx" />
+  </ItemGroup>
+  <ItemGroup>
     <None Update="IMP-Weld-Inspection.config.json">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
       <ExcludeFromSingleFile>true</ExcludeFromSingleFile>
