@@ -452,6 +452,8 @@ public partial class MainWindow : Window
                                            ("delete", "Izbriši", "DangerButton"));
         if (choice != "delete") return;
 
+        // Only now: the viewer holds the PDF open, and an open file can't be deleted.
+        ReportsPage.ReleasePdf();
         try
         {
             await ReportIndex.DeleteAsync(report.Folder, CancellationToken.None);

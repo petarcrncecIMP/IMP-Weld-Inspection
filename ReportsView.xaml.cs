@@ -159,6 +159,9 @@ public partial class ReportsView : UserControl
         PdfView.Visibility = _pdfSuspended ? Visibility.Collapsed : Visibility.Visible;
     }
 
+    /// <summary>Lets go of the open PDF, so its folder can be deleted.</summary>
+    public void ReleasePdf() => HidePdf();
+
     /// <summary>The PDF viewer is a window of its own and paints over everything WPF draws,
     /// dialogs included, so it steps aside while one is open.</summary>
     public void SuspendPdf(bool suspend)
@@ -280,8 +283,6 @@ public partial class ReportsView : UserControl
     private async void OnDeleteClick(object sender, RoutedEventArgs e)
     {
         if (_current is not { } report || DeleteRequested is not { } handler || _busy) return;
-        // The viewer keeps the PDF open, and an open file can't be deleted.
-        HidePdf();
         DeleteButton.IsEnabled = false;
         try
         {
