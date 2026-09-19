@@ -19,6 +19,8 @@ public partial class ReportsView : UserControl
     private List<ReportEntry> _reports = new();
     private ReportEntry? _current;
     private bool _viewerBroken;
+    private bool _pdfShown;
+    private bool _pdfSuspended;
     private string? _project;
     private bool _settingSource;
     private bool _busy;
@@ -150,7 +152,16 @@ public partial class ReportsView : UserControl
         // A fresh copy each time: Word may have just rewritten the file.
         PdfView.CoreWebView2!.Navigate(new Uri(pdf).AbsoluteUri + "#zoom=page-width");
         CenterEmpty.Visibility = Visibility.Collapsed;
-        PdfView.Visibility = Visibility.Visible;
+        _pdfShown = true;
+        PdfView.Visibility = _pdfSuspended ? Visibility.Collapsed : Visibility.Visible;
+    }
+
+    /// <summary>The PDF viewer is a window of its own and paints over everything WPF draws,
+    /// dialogs included, so it steps aside while one is open.</summary>
+    public void SuspendPdf(bool suspend)
+    {
+        _pdfSuspended = suspend;
+        PdfView.Visibility = !suspend && _pdfShown ? Visibility.Visible : Visibility.Collapsed;
     }
 
     /// <summary>Starts the embedded viewer once, with its data next to the app's settings
@@ -180,6 +191,7 @@ public partial class ReportsView : UserControl
 
     private void HidePdf()
     {
+        _pdfShown = false;
         PdfView.Visibility = Visibility.Collapsed;
         if (PdfView.CoreWebView2 != null) PdfView.CoreWebView2.Navigate("about:blank");
     }

@@ -810,6 +810,7 @@ public partial class MainWindow : Window
             last = button;
         }
 
+        ReportsPage?.SuspendPdf(true);
         DialogOverlay.Visibility = Visibility.Visible;
         if (SystemParameters.ClientAreaAnimation)
         {
@@ -826,6 +827,7 @@ public partial class MainWindow : Window
     private void CloseDialog(string? id)
     {
         DialogOverlay.Visibility = Visibility.Collapsed;
+        ReportsPage?.SuspendPdf(false);
         DialogBody.Content = null;
         var tcs = _dialog;
         _dialog = null;
