@@ -331,6 +331,9 @@ A third page beside Uvoz and Pregled, for finished reports:
   The report can also be opened in Word for editing or shown in Explorer.
 - **Novo poročilo** lives here too: pick the skid (with its photo count; a skid without
   photos can't be picked) and the number, and the new report is selected when it's done.
+  The first entry, **Vsi sklopi**, makes one report per skid with photos in one go, numbered
+  on from the number given (VT 2026-010, -011, …), each named with its own skid's label; a
+  skid that fails doesn't stop the rest, and the summary offers to make all their PDFs.
 - **Stale PDFs** are marked: a report whose document was changed in Word after its PDF was
   made shows an amber mark and "PDF je zastarel" in the list, and its **Osveži PDF** button turns
   amber; one without a PDF says so. The page re-reads the reports when the app comes back to

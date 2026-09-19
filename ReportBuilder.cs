@@ -94,6 +94,14 @@ public static class ReportBuilder
         return words.Count == 0 ? unitName : string.Join(' ', words);
     }
 
+    /// <summary>Consecutive numbers from the first one, for a report per skid in one go.</summary>
+    public static List<string> NumberSeries(string first, int count, DateTime today)
+    {
+        var numbers = new List<string>();
+        for (var i = 0; i < count; i++) numbers.Add(i == 0 ? first : SuggestNumber(numbers[^1], today));
+        return numbers;
+    }
+
     public static string FolderFor(ReportRequest request, string number, string skidLabel) =>
         Path.Combine(request.ProjectFolder, ReportsFolderName,
                      FolderConventions.SanitizeFolderName($"{number} - {skidLabel}"));

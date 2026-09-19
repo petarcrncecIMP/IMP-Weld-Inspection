@@ -357,8 +357,23 @@ public partial class MainWindow : Window
         // A skid without photos can't be reported on, so start on one that can.
         skidList.SelectedItem = skidList.Items.Cast<ListBoxItem>().FirstOrDefault(i => i.IsEnabled);
 
+        // One report per skid in one go: numbered on from the number below.
+        var withPhotos = skids.Where(s => photos[s.UnitName] > 0).ToList();
+        if (withPhotos.Count > 1)
+        {
+            skidList.Items.Insert(0, new ListBoxItem
+            {
+                Content = $"Vsi sklopi  ·  {Plural(withPhotos.Count, "poročilo", "poročili", "poročila", "poročil")}, eno za vsak sklop",
+                Tag = AllSkids,
+                Padding = new Thickness(8, 6, 8, 6),
+                FontWeight = FontWeights.SemiBold,
+            });
+        }
+        bool AllPicked() => skidList.SelectedItem is ListBoxItem { Tag: string };
+
         var labelBox = new TextBox { Margin = new Thickness(0, 4, 0, 10) };
         labelBox.SetResourceReference(StyleProperty, "FieldBox");
+        var labelCaption = Muted("Oznaka sklopa v imenu datoteke", "SmallFontSize");
 
         var numberBox = new TextBox
         {
@@ -369,14 +384,28 @@ public partial class MainWindow : Window
 
         // The file name is built from three parts; show what it will be as they are typed.
         var nameText = Muted("", "TinyFontSize");
-        void ShowName() =>
-            nameText.Text = ReportBuilder.DocumentName(labelBox.Text.Trim(), numberBox.Text.Trim());
+        void ShowName()
+        {
+            if (AllPicked())
+            {
+                var series = ReportBuilder.NumberSeries(numberBox.Text.Trim(), withPhotos.Count, DateTime.Today);
+                nameText.Text = $"{Plural(withPhotos.Count, "poročilo", "poročili", "poročila", "poročil")}: " +
+                                $"{series[0]} … {series[^1]}, vsako z oznako svojega sklopa";
+            }
+            else
+            {
+                nameText.Text = ReportBuilder.DocumentName(labelBox.Text.Trim(), numberBox.Text.Trim());
+            }
+        }
         labelBox.TextChanged += (_, _) => ShowName();
         numberBox.TextChanged += (_, _) => ShowName();
         skidList.SelectionChanged += (_, _) =>
         {
+            // For all skids each report takes its own skid's label, so there is nothing to type.
+            labelBox.Visibility = labelCaption.Visibility = AllPicked() ? Visibility.Collapsed : Visibility.Visible;
             if (skidList.SelectedItem is ListBoxItem { Tag: ReportRequest picked })
                 labelBox.Text = ReportBuilder.ShortSkid(picked.UnitName);
+            ShowName();
         };
         if (skidList.SelectedItem is ListBoxItem { Tag: ReportRequest first })
             labelBox.Text = ReportBuilder.ShortSkid(first.UnitName);
@@ -385,7 +414,7 @@ public partial class MainWindow : Window
         var form = new StackPanel();
         form.Children.Add(Muted("Sklop (vse njegove fotografije gredo v poročilo)", "SmallFontSize"));
         form.Children.Add(skidList);
-        form.Children.Add(Muted("Oznaka sklopa v imenu datoteke", "SmallFontSize"));
+        form.Children.Add(labelCaption);
         form.Children.Add(labelBox);
         form.Children.Add(Muted("Številka poročila", "SmallFontSize"));
         form.Children.Add(numberBox);
@@ -396,9 +425,14 @@ public partial class MainWindow : Window
                                            ("cancel", "Prekliči", "SecondaryButton"),
                                            ("create", "Ustvari", "PrimaryButton"));
         if (choice != "create") return;
-        if (skidList.SelectedItem is not ListBoxItem { Tag: ReportRequest request }) return;
         var number = numberBox.Text.Trim();
         if (number.Length == 0) return;
+        if (AllPicked())
+        {
+            await CreateAllReportsAsync(template, withPhotos, ReportBuilder.NumberSeries(number, withPhotos.Count, DateTime.Today));
+            return;
+        }
+        if (skidList.SelectedItem is not ListBoxItem { Tag: ReportRequest request }) return;
         var skidLabel = labelBox.Text.Trim();
 
         _ = ShowDialogAsync("USTVARJAM POROČILO", "Icon.FileText", false, 460,
@@ -470,6 +504,56 @@ public partial class MainWindow : Window
                                   BodyText($"{report.Folder}: {ex.Message}"), ("ok", "V redu", "SecondaryButton"));
         }
         await ReportsPage.RefreshAsync();
+    }
+
+    private const string AllSkids = "*";
+
+    /// <summary>A report for every skid, one after another, then an offer to make their PDFs.
+    /// A skid that fails (its number already taken, say) doesn't stop the rest.</summary>
+    private async Task CreateAllReportsAsync(string template, IReadOnlyList<ReportRequest> skids, IReadOnlyList<string> numbers)
+    {
+        var status = BodyText("");
+        _ = ShowDialogAsync("USTVARJAM POROČILA", "Icon.FileText", false, 460, status);
+        var made = new List<ReportResult>();
+        var failures = new List<string>();
+        string? lastNumber = null;
+        for (var i = 0; i < skids.Count; i++)
+        {
+            var request = skids[i];
+            var number = numbers[i];
+            status.Text = $"{i + 1} / {skids.Count} · {number} · {request.UnitName} …";
+            try
+            {
+                made.Add(await Task.Run(() => ReportBuilder.CreateAsync(
+                    template, request, number, ReportBuilder.ShortSkid(request.UnitName), DateTime.Today, CancellationToken.None)));
+                lastNumber = number;
+            }
+            catch (Exception ex)
+            {
+                failures.Add($"{number} · {request.UnitName}: {ex.Message}");
+            }
+        }
+        CloseDialog(null);
+
+        if (lastNumber != null)
+        {
+            _settings.LastReportNo = lastNumber;
+            _settings.Save();
+        }
+        await ReportsPage.RefreshAsync();
+
+        var done = new StackPanel();
+        done.Children.Add(BodyText($"Ustvarjenih poročil: {made.Count} od {skids.Count}. " +
+                                   "PDF-je lahko naredite zdaj ali pozneje z gumbom Osveži PDF-je."));
+        foreach (var failure in failures) done.Children.Add(Line("Icon.XCircle", "DangerBrush", failure));
+        var buttons = made.Count > 0
+            ? new[] { ("close", "Zapri", "SecondaryButton"), ("pdf", "Ustvari PDF-je", "PrimaryButton") }
+            : new[] { ("close", "Zapri", "SecondaryButton") };
+        var pick = await ShowDialogAsync(failures.Count == 0 ? "POROČILA USTVARJENA" : "NEKATERA POROČILA NISO USPELA",
+                                         failures.Count == 0 ? "Icon.CheckCircle" : "Icon.WarningCircle",
+                                         failures.Count > 0, 560, done, buttons);
+        if (pick == "pdf")
+            await OnRegenerateAllAsync(made.Select(m => ReportEntry.Create(m.Folder)).OfType<ReportEntry>().ToList());
     }
 
     /// <summary>Makes the project's PDFs again: those missing or older than their document,
