@@ -66,7 +66,7 @@ public partial class MainWindow : Window
         Title = $"IMP Weld Inspection {version}";
         VersionText.Text = version;
         BrandLabel.ToolTip = Title;
-        _ = CheckForUpdateAsync();
+        _ = CheckForUpdateAtStartAsync();
 
         // Before the first scan, so the preview is built from the database when it can be.
         await SignInSilentlyAsync();
@@ -276,6 +276,23 @@ public partial class MainWindow : Window
                 return;
             }
         }
+        await OfferUpdateAsync(atStart: false);
+    }
+
+    /// <summary>At start a newer version is offered in a dialog as well, not only in the header
+    /// button, which is easy to miss. It waits for the start-up card scan and never cuts into
+    /// an import or another dialog; "Pozneje" leaves the button there for later.</summary>
+    private async Task CheckForUpdateAtStartAsync()
+    {
+        if (!await CheckForUpdateAsync()) return;
+        for (var i = 0; i < 30 && (_busy || _importing || DialogOverlay.Visibility == Visibility.Visible); i++)
+            await Task.Delay(1000);
+        if (_updating || _importing || DialogOverlay.Visibility == Visibility.Visible) return;
+        await OfferUpdateAsync(atStart: true);
+    }
+
+    private async Task OfferUpdateAsync(bool atStart)
+    {
         if (_update is not { } release) return;
         if (_importing)
         {
@@ -286,8 +303,8 @@ public partial class MainWindow : Window
 
         var body = BodyText($"Na voljo je različica {release.Tag} (nameščena je v{Updater.CurrentVersion}). " +
                             "Prenese se v ozadju, nato se aplikacija sama znova zažene.");
-        var choice = await ShowDialogAsync("POSODOBITEV", "Icon.DownloadSimple", false, 360, body,
-                                           ("cancel", "Prekliči", "SecondaryButton"),
+        var choice = await ShowDialogAsync(atStart ? "NOVA RAZLIČICA" : "POSODOBITEV", "Icon.DownloadSimple", false, 380, body,
+                                           ("cancel", atStart ? "Pozneje" : "Prekliči", "SecondaryButton"),
                                            ("update", "Posodobi", "PrimaryButton"));
         if (choice != "update") return;
 
