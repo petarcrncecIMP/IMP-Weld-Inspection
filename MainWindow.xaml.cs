@@ -1156,14 +1156,53 @@ public partial class MainWindow : Window
     private void UpdateThemeGlyph() =>
         ThemeGlyph.Data = (Geometry)FindResource(App.IsDark ? "Icon.Sun" : "Icon.Moon");
 
+    /// <summary>
+    /// Brings the window to the front for real. Windows only lets the foreground application
+    /// hand the foreground over, so a window raised behind a browser (after a sign-in) or
+    /// behind whatever the user is doing (when a card arrives) just blinks in the task bar.
+    /// Attaching to the foreground window's input queue for the moment of the call is the
+    /// usual way around it.
+    /// </summary>
     public void BringToFront()
     {
         if (WindowState == WindowState.Minimized) WindowState = _settings.Maximized ? WindowState.Maximized : WindowState.Normal;
         Show();
-        Activate();
-        Topmost = true;
-        Topmost = false;
-        Focus();
+
+        var handle = new System.Windows.Interop.WindowInteropHelper(this).EnsureHandle();
+        var foreground = Native.GetForegroundWindow();
+        var ours = Native.GetCurrentThreadId();
+        var theirs = foreground == IntPtr.Zero ? ours : Native.GetWindowThreadProcessId(foreground, out _);
+        var attached = theirs != ours && Native.AttachThreadInput(ours, theirs, true);
+        try
+        {
+            Native.SetForegroundWindow(handle);
+            Activate();
+            Topmost = true;
+            Topmost = false;
+            Focus();
+        }
+        finally
+        {
+            if (attached) Native.AttachThreadInput(ours, theirs, false);
+        }
+    }
+
+    private static class Native
+    {
+        [System.Runtime.InteropServices.DllImport("user32.dll")]
+        public static extern IntPtr GetForegroundWindow();
+
+        [System.Runtime.InteropServices.DllImport("user32.dll")]
+        public static extern uint GetWindowThreadProcessId(IntPtr window, out uint processId);
+
+        [System.Runtime.InteropServices.DllImport("kernel32.dll")]
+        public static extern uint GetCurrentThreadId();
+
+        [System.Runtime.InteropServices.DllImport("user32.dll")]
+        public static extern bool AttachThreadInput(uint attach, uint attachTo, bool join);
+
+        [System.Runtime.InteropServices.DllImport("user32.dll")]
+        public static extern bool SetForegroundWindow(IntPtr window);
     }
 
     private void RestorePlacement()

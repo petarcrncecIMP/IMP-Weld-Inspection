@@ -95,7 +95,8 @@ public partial class App : Application
         var window = new MainWindow(settings, args.FirstOrDefault(Directory.Exists), afterUpdate, api);
         MainWindow = window;
         window.Show();
-        window.Activate(); // the browser had the focus during the login
+        // The browser had the focus during the sign-in, so ask for it properly.
+        window.BringToFront();
 
         _showEvent = new EventWaitHandle(false, EventResetMode.AutoReset, ShowEventName);
         new Thread(() =>
