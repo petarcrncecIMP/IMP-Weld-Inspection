@@ -1,7 +1,5 @@
 using System.Runtime.InteropServices;
 using System.Text.RegularExpressions;
-using System.Windows.Media.Imaging;
-using SkiaSharp;
 
 namespace IMPWeldPhotos;
 
@@ -226,36 +224,5 @@ public static class WordExport
         thread.SetApartmentState(ApartmentState.MTA);
         thread.Start();
         return tcs.Task;
-    }
-}
-
-/// <summary>Renders a PDF's pages for the preview (PDFium). The file is read into memory
-/// first, so nothing on the share stays open.</summary>
-public static class PdfPreview
-{
-    public static List<BitmapSource> Render(string pdfPath, int dpi = 110, int maxPages = 30)
-    {
-        var bytes = File.ReadAllBytes(pdfPath);
-        var pages = new List<BitmapSource>();
-        foreach (var bitmap in PDFtoImage.Conversion.ToImages(bytes, null, new PDFtoImage.RenderOptions(Dpi: dpi)))
-        {
-            using (bitmap) pages.Add(ToBitmapSource(bitmap));
-            if (pages.Count >= maxPages) break;
-        }
-        return pages;
-    }
-
-    private static BitmapSource ToBitmapSource(SKBitmap bitmap)
-    {
-        using var image = SKImage.FromBitmap(bitmap);
-        using var data = image.Encode(SKEncodedImageFormat.Png, 90);
-        using var stream = new MemoryStream(data.ToArray());
-        var source = new BitmapImage();
-        source.BeginInit();
-        source.CacheOption = BitmapCacheOption.OnLoad;
-        source.StreamSource = stream;
-        source.EndInit();
-        source.Freeze();
-        return source;
     }
 }

@@ -1,14 +1,14 @@
 using System.Diagnostics;
 using System.Windows;
 using System.Windows.Controls;
-using System.Windows.Media.Imaging;
+using Microsoft.Web.WebView2.Core;
 
 namespace IMPWeldPhotos;
 
 /// <summary>
-/// The Poročila page: every report of the picked project, its PDF rendered page by page,
-/// and the two things done with a finished report — make the PDF (through Word) and edit
-/// the document in Word. Nothing on the share is held open: the PDF is read into memory.
+/// The Poročila page: every report of the picked project, the PDF itself shown in Edge's
+/// viewer (zoom, search, print), and the two things done with a finished report — make the
+/// PDF (through Word) and edit the document in Word.
 /// </summary>
 public partial class ReportsView : UserControl
 {
@@ -18,7 +18,7 @@ public partial class ReportsView : UserControl
     private List<IsoEntry> _allIsos = new();
     private List<ReportEntry> _reports = new();
     private ReportEntry? _current;
-    private CancellationTokenSource? _previewCts;
+    private bool _viewerBroken;
     private string? _project;
     private bool _settingSource;
     private bool _busy;
@@ -100,6 +100,7 @@ public partial class ReportsView : UserControl
         }
 
         _current = null;
+        HidePdf();
         ShowEmpty(_reports.Count == 0 ? "NI POROČIL" : "IZBERITE POROČILO",
                   _reports.Count == 0
                       ? "Novo poročilo naredite z gumbom Novo poročilo."
@@ -122,52 +123,79 @@ public partial class ReportsView : UserControl
         PdfButton.ToolTip = report.HasPdf
             ? "Znova ustvari PDF iz dokumenta Word"
             : "Shrani poročilo kot PDF (prek Worda)";
-        await ShowPagesAsync(report);
+        await ShowPdfAsync(report);
     }
 
-    private async Task ShowPagesAsync(ReportEntry report)
+    private async Task ShowPdfAsync(ReportEntry report)
     {
-        _previewCts?.Cancel();
-        var cts = new CancellationTokenSource();
-        _previewCts = cts;
-
         if (report.PdfPath is not { } pdf)
         {
+            HidePdf();
             ShowEmpty("PDF ŠE NI USTVARJEN",
                       "Poročilo je dokument Word. Za predogled in pošiljanje ga shranite kot PDF.",
                       showPdfButton: true);
             return;
         }
 
-        Pages.ItemsSource = null;
-        ShowEmpty("PRIPRAVLJAM PREDOGLED", Path.GetFileName(pdf));
-        List<BitmapSource> pages;
-        try
+        if (!await EnsureViewerAsync())
         {
-            pages = await Task.Run(() => PdfPreview.Render(pdf), cts.Token);
-        }
-        catch (Exception ex)
-        {
-            if (cts.IsCancellationRequested) return;
-            ShowEmpty("PREDOGLEDA NI MOGOČE PRIKAZATI", ex.Message, showPdfButton: true);
+            HidePdf();
+            ShowEmpty("PREDOGLEDA NI MOGOČE PRIKAZATI",
+                      "Za predogled v aplikaciji je potreben Microsoft Edge WebView2. " +
+                      "PDF lahko odprete v svojem pregledovalniku.",
+                      showOpenPdfButton: true);
             return;
         }
-        if (cts.IsCancellationRequested || _current != report) return;
 
-        Pages.ItemsSource = pages;
+        // A fresh copy each time: Word may have just rewritten the file.
+        PdfView.CoreWebView2!.Navigate(new Uri(pdf).AbsoluteUri + "#zoom=page-width");
         CenterEmpty.Visibility = Visibility.Collapsed;
-        PagesScroll.Visibility = Visibility.Visible;
-        PagesScroll.ScrollToTop();
+        PdfView.Visibility = Visibility.Visible;
     }
 
-    private void ShowEmpty(string title, string text, bool showPdfButton = false)
+    /// <summary>Starts the embedded viewer once, with its data next to the app's settings
+    /// (the folder beside the exe may be read-only or on a share).</summary>
+    private async Task<bool> EnsureViewerAsync()
     {
-        Pages.ItemsSource = null;
-        PagesScroll.Visibility = Visibility.Collapsed;
+        if (PdfView.CoreWebView2 != null) return true;
+        if (_viewerBroken) return false;
+        try
+        {
+            var dataFolder = Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+                "IMP", "IMPWeldPhotos", "webview");
+            Directory.CreateDirectory(dataFolder);
+            var environment = await CoreWebView2Environment.CreateAsync(null, dataFolder);
+            await PdfView.EnsureCoreWebView2Async(environment);
+            PdfView.CoreWebView2!.Settings.AreDevToolsEnabled = false;
+            PdfView.CoreWebView2.Settings.IsStatusBarEnabled = false;
+            return true;
+        }
+        catch (Exception)
+        {
+            _viewerBroken = true;
+            return false;
+        }
+    }
+
+    private void HidePdf()
+    {
+        PdfView.Visibility = Visibility.Collapsed;
+        if (PdfView.CoreWebView2 != null) PdfView.CoreWebView2.Navigate("about:blank");
+    }
+
+    private void ShowEmpty(string title, string text, bool showPdfButton = false, bool showOpenPdfButton = false)
+    {
         EmptyTitle.Text = title;
         EmptyText.Text = text;
         EmptyPdfButton.Visibility = showPdfButton ? Visibility.Visible : Visibility.Collapsed;
+        EmptyOpenButton.Visibility = showOpenPdfButton ? Visibility.Visible : Visibility.Collapsed;
         CenterEmpty.Visibility = Visibility.Visible;
+    }
+
+    private void OnOpenPdfClick(object sender, RoutedEventArgs e)
+    {
+        if (_current?.PdfPath is { } pdf) Start(pdf);
     }
 
     // ─── Actions ─────────────────────────────────────────────────────────────
@@ -202,6 +230,7 @@ public partial class ReportsView : UserControl
         PdfButton.IsEnabled = EmptyPdfButton.IsEnabled = false;
         var wasText = PdfButtonText.Text;
         PdfButtonText.Text = "Ustvarjam …";
+        HidePdf();
         ShowEmpty("USTVARJAM PDF", "Word pripravlja PDF; to traja nekaj sekund.");
         try
         {

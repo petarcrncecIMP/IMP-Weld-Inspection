@@ -322,8 +322,11 @@ A third page beside Uvoz and Pregled, for finished reports:
   the UI thread) and an en-US thread culture; a document just written can need a retry, and
   one opened from a share can land in Protected View, whose window `Edit()` turns into the
   document. Without Word installed, the page says so and the report can still be opened.
-- The PDF is shown page by page in the app (PDFium, read into memory so nothing on the share
-  stays open), and the report can be opened in Word for editing or shown in Explorer.
+- The **PDF itself** is shown in the app, in Edge's viewer (WebView2), so it has real zoom,
+  scrolling, search, rotation and printing rather than a picture of the pages. Its data folder
+  is `%LOCALAPPDATA%\IMP\IMPWeldPhotos\webview`, because the folder beside the exe can be
+  read-only. Without the WebView2 runtime the page says so and offers to open the PDF outside.
+  The report can also be opened in Word for editing or shown in Explorer.
 - **Novo poročilo** lives here too: pick the skid (with its photo count; a skid without
   photos can't be picked) and the number, and the new report is selected when it's done.
 
