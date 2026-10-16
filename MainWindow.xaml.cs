@@ -401,7 +401,7 @@ public partial class MainWindow : Window
     {
         var body = new StackPanel();
         body.Children.Add(BodyText(
-            $"S strežnika bo izbrisanih {Plural(photos.Count, "fotografija", "fotografiji", "fotografije", "fotografij")}."));
+            $"S strežnika {Plural(photos.Count, "fotografija bo izbrisana", "fotografiji bosta izbrisani", "fotografije bodo izbrisane", "fotografij bo izbrisanih")}."));
         body.Children.Add(Muted(string.Join(", ", photos.Take(8).Select(p => p.Name)) +
                                 (photos.Count > 8 ? " …" : ""), "SmallFontSize"));
         body.Children.Add(BodyText("Če so še na kartici, jih naslednji uvoz spet prinese."));
@@ -432,23 +432,17 @@ public partial class MainWindow : Window
     private async Task OnPhotosMoveAsync(PhotoMoveRequest request)
     {
         // The welds this isometrija has, to pick from; typing is there for one it doesn't yet.
-        var weldBox = new ComboBox
-        {
-            IsEditable = true,
-            MaxDropDownHeight = 220,
-            Padding = new Thickness(8, 6, 8, 6),
-            FontSize = 14,
-            Margin = new Thickness(0, 4, 0, 10),
-        };
-        weldBox.SetResourceReference(Control.BackgroundProperty, "WindowBackgroundBrush");
-        weldBox.SetResourceReference(Control.ForegroundProperty, "TextBrush");
-        weldBox.SetResourceReference(Control.BorderBrushProperty, "BorderBrush");
+        var weldBox = new ComboBox { MaxDropDownHeight = 220, Margin = new Thickness(0, 4, 0, 10) };
+        weldBox.SetResourceReference(StyleProperty, "FieldCombo");
         foreach (var weld in request.Welds) weldBox.Items.Add(weld);
 
         var form = new StackPanel();
         form.Children.Add(BodyText(
             $"{Plural(request.Photos.Count, "fotografija se premakne", "fotografiji se premakneta", "fotografije se premaknejo", "fotografij se premakne")} " +
-            $"v drug zvar izometrije {request.IsoName}. Vsaka dobi naslednjo prosto številko tistega zvara."));
+            $"v drug zvar izometrije {request.IsoName}. " +
+            (request.Photos.Count == 1
+                ? "Dobi naslednjo prosto številko tistega zvara."
+                : "Vsaka dobi naslednjo prosto številko tistega zvara.")));
         form.Children.Add(Muted("Zvar — izberite s seznama ali vpišite novega (npr. W12, FW3)", "SmallFontSize"));
         form.Children.Add(weldBox);
 
