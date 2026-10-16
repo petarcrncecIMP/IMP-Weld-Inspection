@@ -393,6 +393,96 @@ public partial class MainWindow : Window
                               ("ok", "V redu", "PrimaryButton"));
     }
 
+    // ─── Fixing photos in Pregled ────────────────────────────────────────────
+
+    /// <summary>Deletes photos from the share. They come back on the next import while they are
+    /// still on the card, which the warning says.</summary>
+    private async Task OnPhotosDeleteAsync(IReadOnlyList<PhotoItem> photos)
+    {
+        var body = new StackPanel();
+        body.Children.Add(BodyText(
+            $"S strežnika bo izbrisanih {Plural(photos.Count, "fotografija", "fotografiji", "fotografije", "fotografij")}."));
+        body.Children.Add(Muted(string.Join(", ", photos.Take(8).Select(p => p.Name)) +
+                                (photos.Count > 8 ? " …" : ""), "SmallFontSize"));
+        body.Children.Add(BodyText("Če so še na kartici, jih naslednji uvoz spet prinese."));
+
+        var choice = await ShowDialogAsync("IZBRIŠI FOTOGRAFIJE", "Icon.Trash", true, 520, body,
+                                           ("cancel", "Prekliči", "SecondaryButton"),
+                                           ("delete", "Izbriši", "DangerButton"));
+        if (choice != "delete") return;
+
+        var failures = new List<string>();
+        foreach (var photo in photos)
+        {
+            try
+            {
+                await PhotoEdit.DeleteAsync(photo.Path, CancellationToken.None);
+            }
+            catch (Exception ex)
+            {
+                failures.Add($"{photo.Name}: {ex.Message}");
+            }
+        }
+        await ViewerPage.ReloadPhotosAsync();
+        await ReportProblemsAsync("FOTOGRAFIJ NI MOGOČE IZBRISATI", failures);
+    }
+
+    /// <summary>Moves photos to another weld of the same isometrija: each is renamed into that
+    /// weld's numbering, in the folder they are already in.</summary>
+    private async Task OnPhotosMoveAsync(PhotoMoveRequest request)
+    {
+        // The welds this isometrija has, to pick from; typing is there for one it doesn't yet.
+        var weldBox = new ComboBox
+        {
+            IsEditable = true,
+            MaxDropDownHeight = 220,
+            Padding = new Thickness(8, 6, 8, 6),
+            FontSize = 14,
+            Margin = new Thickness(0, 4, 0, 10),
+        };
+        weldBox.SetResourceReference(Control.BackgroundProperty, "WindowBackgroundBrush");
+        weldBox.SetResourceReference(Control.ForegroundProperty, "TextBrush");
+        weldBox.SetResourceReference(Control.BorderBrushProperty, "BorderBrush");
+        foreach (var weld in request.Welds) weldBox.Items.Add(weld);
+
+        var form = new StackPanel();
+        form.Children.Add(BodyText(
+            $"{Plural(request.Photos.Count, "fotografija se premakne", "fotografiji se premakneta", "fotografije se premaknejo", "fotografij se premakne")} " +
+            $"v drug zvar izometrije {request.IsoName}. Vsaka dobi naslednjo prosto številko tistega zvara."));
+        form.Children.Add(Muted("Zvar — izberite s seznama ali vpišite novega (npr. W12, FW3)", "SmallFontSize"));
+        form.Children.Add(weldBox);
+
+        var choice = await ShowDialogAsync("PREMAKNI V DRUG ZVAR", "Icon.ArrowBendUpRight", false, 520, form,
+                                           ("cancel", "Prekliči", "SecondaryButton"),
+                                           ("move", "Premakni", "PrimaryButton"));
+        if (choice != "move") return;
+        var target = weldBox.Text.Trim();
+        if (target.Length == 0) return;
+
+        var failures = new List<string>();
+        foreach (var photo in request.Photos)
+        {
+            try
+            {
+                await PhotoEdit.MoveToWeldAsync(photo.Path, target, CancellationToken.None);
+            }
+            catch (Exception ex)
+            {
+                failures.Add($"{photo.Name}: {ex.Message}");
+            }
+        }
+        await ViewerPage.ReloadPhotosAsync();
+        await ReportProblemsAsync("FOTOGRAFIJ NI MOGOČE PREMAKNITI", failures);
+    }
+
+    private async Task ReportProblemsAsync(string title, IReadOnlyList<string> problems)
+    {
+        if (problems.Count == 0) return;
+        var panel = new StackPanel();
+        foreach (var problem in problems) panel.Children.Add(Line("Icon.XCircle", "DangerBrush", problem));
+        await ShowDialogAsync(title, "Icon.WarningCircle", true, 520, panel, ("ok", "V redu", "SecondaryButton"));
+    }
+
     // ─── Reports ─────────────────────────────────────────────────────────────
 
     /// <summary>A report for one skid: pick the skid and the number, then stamp its photos
@@ -717,6 +807,8 @@ public partial class MainWindow : Window
             if (!_viewerReady)
             {
                 ViewerPage.Initialize(_cfg, _settings);
+                ViewerPage.PhotosDeleteRequested += OnPhotosDeleteAsync;
+                ViewerPage.PhotosMoveRequested += OnPhotosMoveAsync;
                 _viewerReady = true;
             }
             await ViewerPage.RefreshAsync();

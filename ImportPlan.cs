@@ -162,6 +162,14 @@ public static class Numbering
 
     public static int CountImported(string folder, string prefix) => WeldFiles(folder, prefix).Count;
 
+    /// <summary>Every finished photo in the folder, whatever weld it belongs to. A photo moved
+    /// to another weld in Pregled must not come back under its old name on the next import.</summary>
+    public static List<string> FolderFiles(string folder)
+    {
+        var rx = new Regex(@"^\d{7}-.+-\d+\.[^.]+$", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
+        return Names(folder).Where(n => rx.IsMatch(n)).Select(n => Path.Combine(folder, n)).ToList();
+    }
+
     private static IEnumerable<string> Names(string folder)
     {
         try

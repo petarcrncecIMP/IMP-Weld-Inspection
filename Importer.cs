@@ -122,13 +122,14 @@ public sealed class Importer
         }
 
         // Photos are copied byte for byte, so a card photo is already in exactly when a photo
-        // of this weld at the destination has the same SHA-256. Deleted photos simply aren't
-        // there any more and come back on the next import.
+        // in the isometrija folder has the same SHA-256 — any weld of it, so a photo moved to
+        // another weld in Pregled isn't copied back under its old one. Deleted photos simply
+        // aren't there any more and come back on the next import.
         var prefix = weld.FilePrefix;
         Dictionary<string, string> imported;
         try
         {
-            imported = await HashFilesAsync(Numbering.WeldFiles(folder, prefix), ct);
+            imported = await HashFilesAsync(Numbering.FolderFiles(folder), ct);
         }
         catch (OperationCanceledException)
         {

@@ -267,7 +267,12 @@ be started by hand with a "Scan again" button.
    date and size. Actions: open in the default viewer, show in folder, copy the
    file to the clipboard. Double-clicking a row of the import table opens that
    isometrija here. Images are read into memory before decoding, so the viewer
-   never keeps a file on the share open. Photos are shown upright per their EXIF
+   never keeps a file on the share open. Several tiles can be picked (Ctrl/Shift-click) and
+   then **moved to another weld** of the same isometrija — a rename into that weld's next free
+   number, the target chosen from a dropdown of the isometrija's welds or typed for a new one —
+   or **deleted** from the share after a warning that a photo still on the card comes back on
+   the next import. Because the import compares hashes against the whole isometrija folder, a
+   moved photo is not copied back under its old weld. Photos are shown upright per their EXIF
    orientation, which the originals keep.
 6. **Poročila**, a third page: the project's finished reports, their PDF shown in the app,
    and the buttons to make the PDF (through Word), edit in Word or open the folder (§6).

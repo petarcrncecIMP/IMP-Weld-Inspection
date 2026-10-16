@@ -92,8 +92,9 @@
                 </StackPanel>
             </DockPanel>
 
+            <!-- Extended: Ctrl/Shift-click to fix several photos at once. -->
             <ListBox x:Name="PhotoList" Grid.Row="1" Style="{StaticResource PlainList}" ItemContainerStyle="{StaticResource PhotoTile}"
-                     Padding="16,0,6,8" Visibility="Collapsed" VirtualizingPanel.IsVirtualizing="False"
+                     Padding="16,0,6,8" Visibility="Collapsed" VirtualizingPanel.IsVirtualizing="False" SelectionMode="Extended"
                      SelectionChanged="OnPhotoSelected" MouseDoubleClick="OnPhotoDoubleClick" IsSynchronizedWithCurrentItem="False">
                 <ListBox.ItemsPanel>
                     <ItemsPanelTemplate>
@@ -210,6 +211,21 @@
                             <StackPanel Orientation="Horizontal">
                                 <local:Glyph Data="{StaticResource Icon.Copy}" Margin="0,0,8,0" />
                                 <TextBlock Text="Kopiraj" />
+                            </StackPanel>
+                        </Button>
+                        <!-- Fixing a mistake: wrong weld, or a photo that doesn't belong here. -->
+                        <Button x:Name="MovePhotoButton" Style="{StaticResource SecondaryButton}" Margin="0,0,8,8" Click="OnMoveClick"
+                                ToolTip="Premakni fotografije v drug zvar te izometrije">
+                            <StackPanel Orientation="Horizontal">
+                                <local:Glyph Data="{StaticResource Icon.ArrowBendUpRight}" Margin="0,0,8,0" />
+                                <TextBlock Text="Premakni" />
+                            </StackPanel>
+                        </Button>
+                        <Button x:Name="DeletePhotoButton" Style="{StaticResource DangerButton}" Margin="0,0,8,8" Click="OnDeletePhotosClick"
+                                ToolTip="Izbriši fotografije s strežnika">
+                            <StackPanel Orientation="Horizontal">
+                                <local:Glyph Data="{StaticResource Icon.Trash}" Margin="0,0,8,0" />
+                                <TextBlock Text="Izbriši" />
                             </StackPanel>
                         </Button>
                     </WrapPanel>

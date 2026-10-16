@@ -40,6 +40,12 @@ public partial class ViewerView : UserControl
     /// <summary>Folder to select on the next refresh, when jumping here from the import table.</summary>
     public string? PendingFolder { get; set; }
 
+    /// <summary>Asks the window to delete these photos, or to move them to another weld of the
+    /// same isometrija; the window owns the dialogs.</summary>
+    public event Func<IReadOnlyList<PhotoItem>, Task>? PhotosDeleteRequested;
+
+    public event Func<PhotoMoveRequest, Task>? PhotosMoveRequested;
+
     public ViewerView()
     {
         InitializeComponent();
@@ -296,6 +302,9 @@ public partial class ViewerView : UserControl
 
     private PhotoItem? Current => PhotoList.SelectedItem as PhotoItem;
 
+    /// <summary>Every ticked tile: the actions work on all of them, the preview on the last.</summary>
+    private List<PhotoItem> Selected => PhotoList.SelectedItems.OfType<PhotoItem>().ToList();
+
     private async void OnPhotoSelected(object sender, SelectionChangedEventArgs e)
     {
         if (Current is not { } item)
@@ -305,6 +314,18 @@ public partial class ViewerView : UserControl
         }
         PhotoList.ScrollIntoView(item);
         await ShowPreviewAsync(item);
+        ShowSelectionCount();
+    }
+
+    /// <summary>With more than one picked, say so where the file name stands.</summary>
+    private void ShowSelectionCount()
+    {
+        var picked = Selected.Count;
+        if (picked > 1 && Current is { } item)
+        {
+            DetailName.Text = $"{item.Name}  ·  izbranih {picked}";
+            DetailName.ToolTip = string.Join(Environment.NewLine, Selected.Select(p => p.Name));
+        }
     }
 
     private async Task ShowPreviewAsync(PhotoItem item)
@@ -428,6 +449,66 @@ public partial class ViewerView : UserControl
             Clipboard.SetFileDropList(new StringCollection { item.Path });
             Status("Kopirano. Prilepite jo v e-pošto, mapo ali poročilo.");
         });
+    }
+
+    private async void OnMoveClick(object sender, RoutedEventArgs e)
+    {
+        if (PhotosMoveRequested is not { } handler || _currentIso is not { } iso) return;
+        var photos = Selected.Where(p => p.BomCode.Length > 0).ToList();
+        if (photos.Count == 0)
+        {
+            Status("Te datoteke nimajo imena uvožene fotografije, zato jih ni mogoče premakniti.");
+            return;
+        }
+
+        var welds = (_photoView?.SourceCollection as IEnumerable<PhotoItem> ?? Enumerable.Empty<PhotoItem>())
+            .Select(p => p.WeldLabel)
+            .Where(w => w != PhotoItem.OtherLabel)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .OrderBy(w => w, StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+        MovePhotoButton.IsEnabled = false;
+        try
+        {
+            await handler(new PhotoMoveRequest(photos, welds, iso.FolderName));
+        }
+        finally
+        {
+            MovePhotoButton.IsEnabled = true;
+        }
+    }
+
+    private async void OnDeletePhotosClick(object sender, RoutedEventArgs e)
+    {
+        if (PhotosDeleteRequested is not { } handler) return;
+        var photos = Selected;
+        if (photos.Count == 0) return;
+
+        DeletePhotoButton.IsEnabled = false;
+        try
+        {
+            await handler(photos);
+        }
+        finally
+        {
+            DeletePhotoButton.IsEnabled = true;
+        }
+    }
+
+    /// <summary>Re-reads the open isometrija after photos were deleted or moved.</summary>
+    public async Task ReloadPhotosAsync()
+    {
+        if (_currentIso is not { } iso) return;
+        _forceReload = true;
+        try
+        {
+            await LoadIsoAsync(iso);
+        }
+        finally
+        {
+            _forceReload = false;
+        }
     }
 
     private void OnOpenIsoFolderClick(object sender, RoutedEventArgs e)

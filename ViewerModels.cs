@@ -7,6 +7,10 @@ using SkiaSharp;
 
 namespace IMPWeldPhotos;
 
+/// <summary>Photos to move into another weld of the isometrija they are already in, with the
+/// welds that isometrija has now (a new label can be typed instead).</summary>
+public sealed record PhotoMoveRequest(IReadOnlyList<PhotoItem> Photos, IReadOnlyList<string> Welds, string IsoName);
+
 /// <summary>One isometrija folder on the share, as listed in the viewer.</summary>
 public sealed class IsoEntry
 {
@@ -152,6 +156,7 @@ public sealed class PhotoItem : INotifyPropertyChanged
 
     public required string Path { get; init; }
     public required string Name { get; init; }
+    public required string BomCode { get; init; }
     public required string WeldLabel { get; init; }
     public required int Number { get; init; }
     public required bool IsVideo { get; init; }
@@ -185,6 +190,7 @@ public sealed class PhotoItem : INotifyPropertyChanged
             {
                 Path = f.FullName,
                 Name = f.Name,
+                BomCode = m.Success ? m.Groups[1].Value : "",
                 WeldLabel = m.Success ? m.Groups[2].Value : OtherLabel,
                 Number = number,
                 IsVideo = MediaFiles.IsVideo(f.Name),
