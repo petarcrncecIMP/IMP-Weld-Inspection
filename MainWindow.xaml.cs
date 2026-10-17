@@ -82,6 +82,7 @@ public partial class MainWindow : Window
 
     private async void OnDriveArrived(string drive)
     {
+        if (_viewerReady) await ViewerPage.UpdateCardStateAsync();
         if (_importing) return;
         await ScanAsync(drive, auto: true);
     }
@@ -395,16 +396,20 @@ public partial class MainWindow : Window
 
     // ─── Fixing photos in Pregled ────────────────────────────────────────────
 
-    /// <summary>Deletes photos from the share. They come back on the next import while they are
-    /// still on the card, which the warning says.</summary>
-    private async Task OnPhotosDeleteAsync(IReadOnlyList<PhotoItem> photos)
+    /// <summary>Deletes photos from the share and, with the card in, from the card too, so
+    /// they don't come back on the next import. Without the card the warning says they will.</summary>
+    private async Task OnPhotosDeleteAsync(PhotoDeleteRequest request)
     {
+        var photos = request.Photos;
         var body = new StackPanel();
         body.Children.Add(BodyText(
-            $"S strežnika {Plural(photos.Count, "fotografija bo izbrisana", "fotografiji bosta izbrisani", "fotografije bodo izbrisane", "fotografij bo izbrisanih")}."));
+            $"{(request.CardIsoFolder != null ? "S strežnika in s kartice" : "S strežnika")} " +
+            $"{Plural(photos.Count, "fotografija bo izbrisana", "fotografiji bosta izbrisani", "fotografije bodo izbrisane", "fotografij bo izbrisanih")}."));
         body.Children.Add(Muted(string.Join(", ", photos.Take(8).Select(p => p.Name)) +
                                 (photos.Count > 8 ? " …" : ""), "SmallFontSize"));
-        body.Children.Add(BodyText("Če so še na kartici, jih naslednji uvoz spet prinese."));
+        body.Children.Add(request.CardIsoFolder != null
+            ? Muted($"Kartica: {request.CardIsoFolder}", "TinyFontSize")
+            : BodyText("Kartica ni vstavljena: če so fotografije še na njej, jih naslednji uvoz spet prinese."));
 
         var choice = await ShowDialogAsync("IZBRIŠI FOTOGRAFIJE", "Icon.Trash", true, 520, body,
                                            ("cancel", "Prekliči", "SecondaryButton"),
@@ -412,19 +417,43 @@ public partial class MainWindow : Window
         if (choice != "delete") return;
 
         var failures = new List<string>();
+        var notOnCard = new List<string>();
+        CardSync.CardIndex? card = null;
+        if (request.CardIsoFolder is { } cardFolder)
+        {
+            _ = ShowDialogAsync("BRIŠEM", "Icon.Trash", true, 420, BodyText("Berem kartico in brišem fotografije …"));
+            try
+            {
+                card = await Task.Run(() => CardSync.IndexAsync(cardFolder, CancellationToken.None));
+            }
+            catch (Exception ex)
+            {
+                CloseDialog(null);
+                await ReportProblemsAsync("KARTICE NI MOGOČE PREBRATI", new[] { $"{cardFolder}: {ex.Message}" });
+                return;
+            }
+        }
         foreach (var photo in photos)
         {
             try
             {
+                // The hash is taken while the share's copy still exists: it is how the card's
+                // copy is found once the share's is gone.
+                var hash = card == null ? null : await CardSync.HashAsync(photo.Path, CancellationToken.None);
                 await PhotoEdit.DeleteAsync(photo.Path, CancellationToken.None);
+                if (card != null && await CardSync.DeleteCopyAsync(card, hash!, CancellationToken.None) == null)
+                    notOnCard.Add(photo.Name);
             }
             catch (Exception ex)
             {
                 failures.Add($"{photo.Name}: {ex.Message}");
             }
         }
+        if (card != null) CloseDialog(null);
         await ViewerPage.ReloadPhotosAsync();
-        await ReportProblemsAsync("FOTOGRAFIJ NI MOGOČE IZBRISATI", failures);
+        if (notOnCard.Count > 0)
+            failures.Add($"Na kartici ni bilo: {string.Join(", ", notOnCard)} (morda je že počiščena). S strežnika so izbrisane.");
+        await ReportProblemsAsync("BRISANJE S PRIPOMBAMI", failures);
     }
 
     /// <summary>Moves photos to another weld of the same isometrija: each is renamed into that
@@ -445,6 +474,7 @@ public partial class MainWindow : Window
                 : "Vsaka dobi naslednjo prosto številko tistega zvara.")));
         form.Children.Add(Muted("Zvar — izberite s seznama ali vpišite novega (npr. W12, FW3)", "SmallFontSize"));
         form.Children.Add(weldBox);
+        form.Children.Add(Muted($"Premakne se tudi na kartici: {request.CardIsoFolder}", "TinyFontSize"));
 
         var choice = await ShowDialogAsync("PREMAKNI V DRUG ZVAR", "Icon.ArrowBendUpRight", false, 520, form,
                                            ("cancel", "Prekliči", "SecondaryButton"),
@@ -454,19 +484,51 @@ public partial class MainWindow : Window
         if (target.Length == 0) return;
 
         var failures = new List<string>();
+        var notOnCard = new List<string>();
+        _ = ShowDialogAsync("PREMIKAM", "Icon.ArrowBendUpRight", false, 420,
+                            BodyText("Berem kartico in premikam fotografije …"));
+        CardSync.CardIndex card;
+        try
+        {
+            // The card is read once for the whole move, however many photos are picked.
+            card = await Task.Run(() => CardSync.IndexAsync(request.CardIsoFolder, CancellationToken.None));
+        }
+        catch (Exception ex)
+        {
+            CloseDialog(null);
+            await ReportProblemsAsync("KARTICE NI MOGOČE PREBRATI", new[] { $"{request.CardIsoFolder}: {ex.Message}" });
+            return;
+        }
         foreach (var photo in request.Photos)
         {
+            string movedTo;
             try
             {
-                await PhotoEdit.MoveToWeldAsync(photo.Path, target, CancellationToken.None);
+                // The share first: with the photo renamed, an import compares hashes against the
+                // whole isometrija folder, so even a card move that fails can't duplicate it.
+                movedTo = await PhotoEdit.MoveToWeldAsync(photo.Path, target, CancellationToken.None);
             }
             catch (Exception ex)
             {
                 failures.Add($"{photo.Name}: {ex.Message}");
+                continue;
+            }
+            try
+            {
+                var movedOnCard = await CardSync.MovePhotoAsync(card, movedTo, target, CancellationToken.None);
+                if (movedOnCard == null) notOnCard.Add(photo.Name);
+            }
+            catch (Exception ex)
+            {
+                failures.Add($"{photo.Name} (kartica): {ex.Message}");
             }
         }
+        CloseDialog(null);
         await ViewerPage.ReloadPhotosAsync();
-        await ReportProblemsAsync("FOTOGRAFIJ NI MOGOČE PREMAKNITI", failures);
+        if (notOnCard.Count > 0)
+            failures.Add($"Na kartici ni bilo mogoče najti: {string.Join(", ", notOnCard)} " +
+                         "(morda je že počiščena). Na strežniku so premaknjene.");
+        await ReportProblemsAsync("PREMIK S PRIPOMBAMI", failures);
     }
 
     private async Task ReportProblemsAsync(string title, IReadOnlyList<string> problems)
@@ -903,6 +965,9 @@ public partial class MainWindow : Window
         RescanButton.IsEnabled = !scanning;
         if (scanning)
         {
+            // The offer to clear the card belongs to the import just done. Any fresh look at
+            // the card ends it (the import's own refresh shows it again afterwards).
+            ClearCardButton.Visibility = Visibility.Collapsed;
             ImportButton.IsEnabled = false;
             FooterText.Text = $"Pregledujem {root} …";
         }

@@ -16,6 +16,10 @@ public sealed class AppConfig
     public ApiSettings Api { get; set; } = new();
     public int PollSeconds { get; set; } = 3;
 
+    /// <summary>Where to look for a card. Empty (the normal case) means the removable drives;
+    /// a folder here stands in for a card, which is how a test build works without one.</summary>
+    public string[] CardRoots { get; set; } = Array.Empty<string>();
+
     public string TitlesPath => Path.Combine(IsoRoot, "titles.json");
 
     public static string LogFolder => Path.Combine(
@@ -38,6 +42,7 @@ public sealed class AppConfig
             }) ?? new AppConfig();
             cfg.Api ??= new ApiSettings();
             cfg.Api.FillBlanks();
+            cfg.CardRoots ??= Array.Empty<string>();
             if (cfg.PollSeconds < 1) cfg.PollSeconds = 1;
             return cfg;
         }

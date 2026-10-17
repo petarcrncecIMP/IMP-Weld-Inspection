@@ -30,6 +30,10 @@ public partial class ViewerView : UserControl
     private string[] _tokens = Array.Empty<string>();
     private bool _refreshing;
     private bool _forceReload;
+
+    /// <summary>This isometrija's folder on an inserted card, or null. Moving is only offered
+    /// with the card in, so the card can be kept in step with the share.</summary>
+    private string? _cardIsoFolder;
     private bool _settingSource;
     private bool _applyingExpansion;
 
@@ -42,7 +46,7 @@ public partial class ViewerView : UserControl
 
     /// <summary>Asks the window to delete these photos, or to move them to another weld of the
     /// same isometrija; the window owns the dialogs.</summary>
-    public event Func<IReadOnlyList<PhotoItem>, Task>? PhotosDeleteRequested;
+    public event Func<PhotoDeleteRequest, Task>? PhotosDeleteRequested;
 
     public event Func<PhotoMoveRequest, Task>? PhotosMoveRequested;
 
@@ -237,6 +241,9 @@ public partial class ViewerView : UserControl
         IsoTitle.Text = iso.FolderName;
         IsoSubtitle.Text = iso.UnitName;
         IsoHeader.Visibility = Visibility.Visible;
+        // Off until the card check (a drive scan) says otherwise; the photos needn't wait for it.
+        MovePhotoButton.IsEnabled = false;
+        _ = UpdateCardStateAsync();
         PhotoList.ItemsSource = null;
         _photoView = null;
         ClearPreview();
@@ -451,9 +458,37 @@ public partial class ViewerView : UserControl
         });
     }
 
+    /// <summary>Moving is on only while a card with this isometrija is in; the tooltip says so.</summary>
+    public async Task UpdateCardStateAsync()
+    {
+        if (_currentIso is not { } iso)
+        {
+            _cardIsoFolder = null;
+            MovePhotoButton.IsEnabled = false;
+            return;
+        }
+        var bomCode = iso.BomCode;
+        var roots = _cfg.CardRoots.Length > 0 ? _cfg.CardRoots : null;
+        var found = await Task.Run(() => CardSync.FindIsoFolder(bomCode, roots));
+        if (_currentIso != iso) return; // another isometrija was opened meanwhile
+        _cardIsoFolder = found;
+        DeletePhotoButton.ToolTip = _cardIsoFolder != null
+            ? $"Izbriše s strežnika in tudi s kartice ({_cardIsoFolder})."
+            : "Izbriše s strežnika. Brez kartice jih naslednji uvoz s te kartice spet prinese.";
+        MovePhotoButton.IsEnabled = _cardIsoFolder != null;
+        MovePhotoButton.ToolTip = _cardIsoFolder != null
+            ? $"Premakne v drug zvar te izometrije — preimenuje na strežniku in premakne tudi na kartici ({_cardIsoFolder})."
+            : $"Vstavite kartico z izometrijo {bomCode}. Premik velja za strežnik in kartico hkrati, da ostaneta usklajena.";
+    }
+
     private async void OnMoveClick(object sender, RoutedEventArgs e)
     {
         if (PhotosMoveRequested is not { } handler || _currentIso is not { } iso) return;
+        if (_cardIsoFolder is not { } cardFolder)
+        {
+            Status($"Za premik vstavite kartico z izometrijo {iso.BomCode}.");
+            return;
+        }
         var photos = Selected.Where(p => p.BomCode.Length > 0).ToList();
         if (photos.Count == 0)
         {
@@ -471,7 +506,7 @@ public partial class ViewerView : UserControl
         MovePhotoButton.IsEnabled = false;
         try
         {
-            await handler(new PhotoMoveRequest(photos, welds, iso.FolderName));
+            await handler(new PhotoMoveRequest(photos, welds, iso.FolderName, cardFolder));
         }
         finally
         {
@@ -488,7 +523,7 @@ public partial class ViewerView : UserControl
         DeletePhotoButton.IsEnabled = false;
         try
         {
-            await handler(photos);
+            await handler(new PhotoDeleteRequest(photos, _cardIsoFolder));
         }
         finally
         {

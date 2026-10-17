@@ -257,7 +257,8 @@ be started by hand with a "Scan again" button.
 2. **Import** button with a progress bar (files, bytes) and cancel.
 3. **Summary:** copied, skipped as duplicate, unresolved, failed (with the
    reason). Plus a button to open the destination folder in Explorer.
-4. After success: the **Clear card** action from §4, with its own confirmation.
+4. After success: the **Clear card** action from §4, with its own confirmation. The offer
+   belongs to that import: any fresh scan (rescan, a new card) takes the button away.
 5. **Pregled (viewer)**, a second page switched from the header, for browsing photos only
    (reports live on their own page): a project picker
    (Kosovnice's typeable combobox: matches the code with or without dashes, or
@@ -270,9 +271,15 @@ be started by hand with a "Scan again" button.
    never keeps a file on the share open. Several tiles can be picked (Ctrl/Shift-click) and
    then **moved to another weld** of the same isometrija — a rename into that weld's next free
    number, the target chosen from a dropdown of the isometrija's welds or typed for a new one —
-   or **deleted** from the share after a warning that a photo still on the card comes back on
-   the next import. Because the import compares hashes against the whole isometrija folder, a
-   moved photo is not copied back under its old weld. Photos are shown upright per their EXIF
+   or **deleted** from the share. Both keep the **card** in step: moving is offered only while a
+   card holding that isometrija is in (`{BomCode}` on its root; the button says so otherwise),
+   and the card's copy — found by SHA-256, since the import copies byte for byte — is moved
+   into the target weld's folder (made as the next `NNN_{label}` when missing) or deleted
+   along with the share's. The card is hashed once per action. Deleting works without a card
+   too, with a warning that a photo still on it comes back on the next import. Because the
+   import compares hashes against the whole isometrija folder, a moved photo is never copied
+   back under its old weld. `CardRoots` in the config can name folders that stand in for a
+   card (a test build's way of having one). Photos are shown upright per their EXIF
    orientation, which the originals keep.
 6. **Poročila**, a third page: the project's finished reports, their PDF shown in the app,
    and the buttons to make the PDF (through Word), edit in Word or open the folder (§6).

@@ -7,9 +7,14 @@ using SkiaSharp;
 
 namespace IMPWeldPhotos;
 
+/// <summary>Photos to delete, with the card's folder for their isometrija when a card is in,
+/// so the card's copies go too.</summary>
+public sealed record PhotoDeleteRequest(IReadOnlyList<PhotoItem> Photos, string? CardIsoFolder);
+
 /// <summary>Photos to move into another weld of the isometrija they are already in, with the
 /// welds that isometrija has now (a new label can be typed instead).</summary>
-public sealed record PhotoMoveRequest(IReadOnlyList<PhotoItem> Photos, IReadOnlyList<string> Welds, string IsoName);
+public sealed record PhotoMoveRequest(IReadOnlyList<PhotoItem> Photos, IReadOnlyList<string> Welds, string IsoName,
+                                      string CardIsoFolder);
 
 /// <summary>One isometrija folder on the share, as listed in the viewer.</summary>
 public sealed class IsoEntry
