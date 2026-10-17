@@ -468,7 +468,7 @@ public partial class ViewerView : UserControl
             return;
         }
         var bomCode = iso.BomCode;
-        var roots = _cfg.CardRoots.Length > 0 ? _cfg.CardRoots : null;
+        var roots = _cfg?.CardRoots is { Length: > 0 } configured ? configured : null;
         var found = await Task.Run(() => CardSync.FindIsoFolder(bomCode, roots));
         if (_currentIso != iso) return; // another isometrija was opened meanwhile
         _cardIsoFolder = found;
